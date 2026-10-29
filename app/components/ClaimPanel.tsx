@@ -4,7 +4,11 @@ import { useState } from "react";
 import { campusGraph } from "@/lib/graph";
 
 export default function ClaimPanel() {
-  const rooms = campusGraph.nodes.filter((n) => n.claimable);
+  const rawRooms = campusGraph.nodes.filter((n) => n.claimable);
+  const rooms = Array.from(
+    new Map(rawRooms.map((item) => [item.id, item])).values(),
+  );
+
   const [nodeId, setNodeId] = useState(rooms[0]?.id ?? "");
   const [claimedBy, setClaimedBy] = useState("");
   const [adminKey, setAdminKey] = useState("");
@@ -18,14 +22,8 @@ export default function ClaimPanel() {
     try {
       const response = await fetch("/api/rooms/claim", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          nodeId,
-          claimedBy,
-          adminKey,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodeId, claimedBy, adminKey }),
       });
 
       const data = await response.json();

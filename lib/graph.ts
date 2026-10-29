@@ -1,3 +1,6 @@
+import { newBuildingNodes, newBuildingEdges } from "./newBuilding";
+import { oldBuildingNodes, oldBuildingEdges } from "./oldBuilding";
+
 export type NodeId = string;
 
 export interface GraphNode {
@@ -7,6 +10,7 @@ export interface GraphNode {
   y: number;
   kind: "junction" | "gate" | "entrance";
   claimable?: boolean;
+  floor?: number;
 }
 
 export interface GraphEdge {
@@ -173,7 +177,7 @@ function edge(from: NodeId, to: NodeId): GraphEdge {
 }
 
 export const campusGraph: CampusGraph = {
-  nodes,
+  nodes: [...nodes, ...newBuildingNodes, ...oldBuildingNodes],
   edges: [
     edge("Gate 2", "Northwest corner"),
     edge("Gate 2", "Northeast corner"),
@@ -194,5 +198,9 @@ export const campusGraph: CampusGraph = {
     edge("CTMO building", "Center path (north)"),
     edge("Center path (north)", "Center path (middle)"),
     edge("Center path (middle)", "Center path (south)"),
+    ...newBuildingEdges,
+    ...oldBuildingEdges,
+    { from: "NB-1-ENTRANCE", to: "East path (south)", weight: 6 },
+    { from: "OB-1-ENTRANCE", to: "Center path (middle)", weight: 6 },
   ],
 };
