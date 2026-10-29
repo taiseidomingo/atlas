@@ -6,6 +6,7 @@ export interface GraphNode {
   x: number;
   y: number;
   kind: "junction" | "gate" | "entrance";
+  claimable?: boolean;
 }
 
 export interface GraphEdge {
@@ -28,6 +29,7 @@ const nodes: GraphNode[] = [
     x: 218,
     y: 168,
     kind: "gate",
+    claimable: false,
   },
   {
     id: "Northwest corner",
@@ -35,6 +37,7 @@ const nodes: GraphNode[] = [
     x: 105,
     y: 187,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "West path (north)",
@@ -42,6 +45,7 @@ const nodes: GraphNode[] = [
     x: 76,
     y: 262,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "Maintenance room",
@@ -49,6 +53,7 @@ const nodes: GraphNode[] = [
     x: 70,
     y: 350,
     kind: "entrance",
+    claimable: false,
   },
   {
     id: "Canteen area",
@@ -56,6 +61,7 @@ const nodes: GraphNode[] = [
     x: 70,
     y: 520,
     kind: "entrance",
+    claimable: false,
   },
   {
     id: "Southwest corner",
@@ -63,6 +69,7 @@ const nodes: GraphNode[] = [
     x: 75,
     y: 630,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "Learning Room",
@@ -70,6 +77,7 @@ const nodes: GraphNode[] = [
     x: 150,
     y: 632,
     kind: "entrance",
+    claimable: false,
   },
   {
     id: "Center path (south)",
@@ -77,6 +85,7 @@ const nodes: GraphNode[] = [
     x: 218,
     y: 632,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "Gate 1",
@@ -84,6 +93,7 @@ const nodes: GraphNode[] = [
     x: 218,
     y: 680,
     kind: "gate",
+    claimable: false,
   },
   {
     id: "Smart Room",
@@ -91,6 +101,7 @@ const nodes: GraphNode[] = [
     x: 285,
     y: 680,
     kind: "entrance",
+    claimable: false,
   },
   {
     id: "Southeast corner",
@@ -98,6 +109,7 @@ const nodes: GraphNode[] = [
     x: 343,
     y: 678,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "East path (south)",
@@ -105,6 +117,7 @@ const nodes: GraphNode[] = [
     x: 336,
     y: 525,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "East path (north)",
@@ -112,6 +125,7 @@ const nodes: GraphNode[] = [
     x: 335,
     y: 330,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "Northeast corner",
@@ -119,6 +133,7 @@ const nodes: GraphNode[] = [
     x: 325,
     y: 190,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "CTMO building",
@@ -126,6 +141,7 @@ const nodes: GraphNode[] = [
     x: 280,
     y: 288,
     kind: "entrance",
+    claimable: false,
   },
   {
     id: "Center path (north)",
@@ -133,6 +149,7 @@ const nodes: GraphNode[] = [
     x: 220,
     y: 230,
     kind: "junction",
+    claimable: false,
   },
   {
     id: "Center path (middle)",
@@ -140,6 +157,7 @@ const nodes: GraphNode[] = [
     x: 220,
     y: 450,
     kind: "junction",
+    claimable: false,
   },
 ];
 

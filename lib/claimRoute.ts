@@ -24,13 +24,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const reservation = claimRoom(nodeId, claimedBy.trim());
+  const result = claimRoom(nodeId, claimedBy.trim());
 
-  if (!reservation) {
+  if (!result.ok) {
+    if (result.reason === "not_claimable") {
+      return NextResponse.json(
+        { error: "That location is not a claimable room" },
+        { status: 400 },
+      );
+    }
     return NextResponse.json({ error: "Room not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ reservation });
+  return NextResponse.json({ reservation: result.reservation });
 }
 
 export async function DELETE(request: NextRequest) {

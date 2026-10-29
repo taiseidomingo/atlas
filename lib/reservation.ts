@@ -15,12 +15,14 @@ const reservations: Map<NodeId, Reservation> =
   globalStore.atlasReservations ??
   (globalStore.atlasReservations = new Map<NodeId, Reservation>());
 
-export function claimRoom(
-  nodeId: NodeId,
-  professor: string,
-): Reservation | null {
+export type ClaimResult =
+  | { ok: true; reservation: Reservation }
+  | { ok: false; reason: "not_found" | "not_claimable" };
+
+export function claimRoom(nodeId: NodeId, professor: string): ClaimResult {
   const node = campusGraph.nodes.find((n) => n.id === nodeId);
-  if (!node) return null;
+  if (!node) return { ok: false, reason: "not_found" };
+  if (!node.claimable) return { ok: false, reason: "not_claimable" };
 
   const reservation: Reservation = {
     nodeId,
@@ -29,7 +31,7 @@ export function claimRoom(
     claimedAt: new Date().toISOString(),
   };
   reservations.set(nodeId, reservation);
-  return reservation;
+  return { ok: true, reservation };
 }
 
 export function releaseRoom(nodeId: NodeId): boolean {

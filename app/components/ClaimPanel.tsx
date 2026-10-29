@@ -4,7 +4,8 @@ import { useState } from "react";
 import { campusGraph } from "@/lib/graph";
 
 export default function ClaimPanel() {
-  const [nodeId, setNodeId] = useState("C");
+  const rooms = campusGraph.nodes.filter((n) => n.claimable);
+  const [nodeId, setNodeId] = useState(rooms[0]?.id ?? "");
   const [claimedBy, setClaimedBy] = useState("");
   const [adminKey, setAdminKey] = useState("");
   const [status, setStatus] = useState("");
@@ -46,7 +47,7 @@ export default function ClaimPanel() {
       <h2>Room claiming</h2>
 
       <select value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
-        {campusGraph.nodes.map((n) => (
+        {rooms.map((n) => (
           <option key={n.id} value={n.id}>
             {n.name}
           </option>
