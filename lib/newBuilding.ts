@@ -3,7 +3,7 @@ import type { GraphEdge, GraphNode, NodeId } from "./graph";
 const INDOOR_METERS_PER_PIXEL = 0.04;
 const FLOOR_CHANGE_METERS = 8;
 const CORRIDOR_X = 450;
-const DOOR_X = 585;
+const DOOR_X = 674;
 
 interface RoomSpec {
   code: string;
@@ -26,15 +26,15 @@ function upperFloor(
   });
 
   return [
-    classroom(5, 205),
+    classroom(5, 208),
     classroom(4, 530),
-    classroom(3, 850),
-    classroom(2, 1165),
-    classroom(1, 1485),
+    classroom(3, 814),
+    classroom(2, 1112),
+    classroom(1, 1416),
     {
       code: `DEPT${floor}`,
       name: `${lastRoomName} (New Building)`,
-      y: 1805,
+      y: 1734,
     },
   ];
 }
@@ -43,44 +43,74 @@ const floor1: RoomSpec[] = [
   {
     code: "CR-N",
     name: "Comfort Room 1F north (New Building)",
-    y: 100,
-    doorX: 680,
+    y: 101,
+    doorX: 714,
   },
-  { code: "DEAN", name: "Dean's Office (New Building)", y: 287 },
+  {
+    code: "DEAN",
+    name: "Dean's Office (New Building)",
+    y: 285,
+    doorX: 660,
+  },
   {
     code: "OSAS",
     name: "Office of Student Affairs and Services (New Building)",
-    y: 482,
+    y: 469,
+    doorX: 667,
   },
-  { code: "GUIDANCE", name: "Guidance Office (New Building)", y: 630 },
+  {
+    code: "GUIDANCE",
+    name: "Guidance Office (New Building)",
+    y: 616,
+    doorX: 667,
+  },
   {
     code: "PE",
     name: "Physical Education Department (New Building)",
-    y: 778,
+    y: 745,
+    doorX: 667,
   },
-  { code: "CASHIER", name: "Cashier (New Building)", y: 925 },
+  {
+    code: "CASHIER",
+    name: "Cashier (New Building)",
+    y: 885,
+    doorX: 667,
+  },
   {
     code: "MIS",
     name: "Management Information System (New Building)",
-    y: 1073,
+    y: 1032,
+    doorX: 667,
   },
-  { code: "REGISTRAR", name: "Registrar (New Building)", y: 1220 },
+  {
+    code: "REGISTRAR",
+    name: "Registrar (New Building)",
+    y: 1173,
+    doorX: 667,
+  },
   {
     code: "RESDEV",
     name: "Research and Development (New Building)",
-    y: 1370,
+    y: 1320,
+    doorX: 667,
   },
-  { code: "IDO", name: "IDO (New Building)", y: 1517 },
+  {
+    code: "IDO",
+    name: "IDO (New Building)",
+    y: 1457,
+    doorX: 667,
+  },
   {
     code: "MGMT",
     name: "Department of Management (New Building)",
-    y: 1713,
+    y: 1647,
+    doorX: 667,
   },
   {
     code: "CR-S",
     name: "Comfort Room 1F south (New Building)",
-    y: 1898,
-    doorX: 680,
+    y: 1821,
+    doorX: 714,
   },
 ];
 
@@ -160,7 +190,10 @@ function addFloor(
   link(liftId, nearestCorridor(floor, lift.y));
 }
 
-addFloor(1, floor1, { x: 240, y: 953 });
+addFloor(1, floor1, {
+  x: 240,
+  y: 953,
+});
 addFloor(2, upperFloor(2, 2, "Education Department"), {
   x: CORRIDOR_X,
   y: 1000,
@@ -169,7 +202,10 @@ addFloor(3, upperFloor(3, 3, "Office AD Department"), {
   x: CORRIDOR_X,
   y: 1000,
 });
-addFloor(4, upperFloor(4, 4, "DLM C"), { x: CORRIDOR_X, y: 1000 });
+addFloor(4, upperFloor(4, 4, "DLM C"), {
+  x: CORRIDOR_X,
+  y: 1000,
+});
 addFloor(5, upperFloor(5, 5, "Social Department"), {
   x: CORRIDOR_X,
   y: 1000,
