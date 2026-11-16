@@ -1,5 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listReservations, Reservation } from "../lib/reservation";
+import { campusGraph } from "./graph";
+
+export interface ChatNavigationRequest {
+  startId?: string;
+  destinationId: string;
+}
+
+const navigableNodes = campusGraph.nodes.filter(
+  (node) => node.kind === "entrance" || node.kind === "gate",
+);
+
+function compact(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function navigationRequest(
+  message: string,
+  forcedDestinationId?: string,
+): ChatNavigationRequest | null {
+  const text = compact(message);
+  const matches = navigableNodes
+    .flatMap((node) => {
+      const aliases = [
+        node.name,
+        node.name.replace(/\s*\([^)]*\)$/, ""),
+      ];
+      return aliases.map((alias) => ({
+        id: node.id,
+        alias: compact(alias),
+      }));
+    })
+    .filter((candidate) => candidate.alias.length > 2)
+    .sort((a, b) => b.alias.length - a.alias.length)
+    .map((candidate) => ({
+      ...candidate,
+      index: text.indexOf(candidate.alias),
+    }))
+    .filter((candidate) => candidate.index >= 0)
+    .filter(
+      (candidate, index, all) =>
+        all.findIndex((other) => other.id === candidate.id) === index,
+    )
+    .sort((a, b) => a.index - b.index);
+
+  if (forcedDestinationId && matches.length > 0) {
+    return {
+      startId: matches[matches.length - 1].id,
+      destinationId: forcedDestinationId,
+    };
+  }
+  if (matches.length === 0) return null;
+  const asksForDirections =
+    /\b(how|get|go|take|navigate|direction|route|where)\b/i.test(message);
+  if (!asksForDirections && matches.length < 2) return null;
+
+  if (matches.length >= 2 && /\bfrom\b/i.test(message)) {
+    return {
+      startId: matches[0].id,
+      destinationId: matches[matches.length - 1].id,
+    };
+  }
+
+  return { destinationId: matches[matches.length - 1].id };
+}
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -17,7 +81,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { message } = await request.json();
+  const body = await request.json();
+  const { message, destinationId } = body;
 
   if (!message || typeof message !== "string") {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
@@ -62,8 +127,16 @@ export async function POST(request: NextRequest) {
   const data = await response.json();
   const reply =
     data.candidates?.[0]?.content?.parts?.[0]?.text ?? "No response generated.";
+  const forcedDestination =
+    typeof destinationId === "string" &&
+    navigableNodes.some((node) => node.id === destinationId)
+      ? destinationId
+      : undefined;
 
-  return NextResponse.json({ reply });
+  return NextResponse.json({
+    reply,
+    navigation: navigationRequest(message, forcedDestination),
+  });
 }
 
 function buildPrompt(userMessage: string, reservations: Reservation[]): string {
