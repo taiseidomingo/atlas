@@ -63,6 +63,7 @@ const outdoorEdges = campusGraph.edges.filter(
   (e) => !buildingOfNode(e.from) && !buildingOfNode(e.to),
 );
 
+// CL 1-4 is the south building (map 10); CL 5-8 is the north building (map 11).
 const indoorImages: Record<
   string,
   { src: string; width: number; height: number; rotate?: boolean }
@@ -70,8 +71,8 @@ const indoorImages: Record<
   "old-1": { src: campusMap02.src, width: 768, height: 1365, rotate: true },
   "old-2": { src: campusMap03.src, width: 768, height: 1365, rotate: true },
   ctmo: { src: campusMap09.src, width: 768, height: 1365 },
-  "cl-n": { src: campusMap10.src, width: 768, height: 1365 },
-  "cl-s": { src: campusMap11.src, width: 768, height: 1365 },
+  "cl-n": { src: campusMap11.src, width: 768, height: 1365 },
+  "cl-s": { src: campusMap10.src, width: 768, height: 1365 },
   "hm-1": { src: campusMap12.src, width: 768, height: 1365 },
   "hm-2": { src: campusMap13.src, width: 768, height: 1365 },
   "hm-3": { src: campusMap14.src, width: 768, height: 1365 },
@@ -103,18 +104,27 @@ function imageRoomRect(
     return top === undefined ? null : { x: 160, y: top, w: 445, h: 190 };
   }
   if (buildingId === "cl-n" || buildingId === "cl-s") {
-    const start = buildingId === "cl-n" ? 1 : 5;
+    const start = buildingId === "cl-n" ? 5 : 1;
     const roomNumber = Number(roomId.split("-").pop());
     if (!Number.isInteger(roomNumber)) return null;
     const index = roomNumber - start;
-    return { x: buildingId === "cl-n" ? 385 : 193, y: 852 - index * 220, w: 232, h: 215 };
+    return {
+      x: buildingId === "cl-n" ? 193 : 385,
+      y: 852 - index * 220,
+      w: 232,
+      h: 215,
+    };
   }
   if (buildingId === "hm" && floorNumber >= 1 && floorNumber <= 3) {
     const number = Number(roomId.split("-").pop());
-    const index = number % 100 - 1;
+    const index = (number % 100) - 1;
     return { x: 163, y: index === 0 ? 344 : 678, w: 232, h: 334 };
   }
-  if (buildingId === "old" && floorNumber === 2 && (roomId === "cl-n" || roomId === "cl-s")) {
+  if (
+    buildingId === "old" &&
+    floorNumber === 2 &&
+    (roomId === "cl-n" || roomId === "cl-s")
+  ) {
     return rotateOldRect(
       roomId === "cl-n"
         ? { x: 52, y: 326, w: 130, h: 105 }
@@ -142,14 +152,19 @@ function imageRoomRect(
       biology: { x: 385, y: 280, w: 102, h: 115 },
       clinic: { x: 552, y: 280, w: 71, h: 110 },
       "student-gov": { x: 647, y: 389, w: 88, h: 58 },
-      "stock-a": { x: 130, y: 459, w: 51, h: 111 },
+      "stock-a": { x: 40, y: 730, w: 89, h: 57 },
+      "stock-b": { x: 40, y: 514, w: 89, h: 57 },
+      "stock-c": { x: 131, y: 729, w: 52, h: 114 },
+      "stock-d": { x: 130, y: 459, w: 51, h: 111 },
+      "stock-e": { x: 633, y: 333, w: 102, h: 52 },
+      "stock-f": { x: 633, y: 276, w: 102, h: 55 },
       "rm-119": { x: 182, y: 459, w: 99, h: 52 },
       "rm-118": { x: 182, y: 514, w: 99, h: 55 },
       "rm-115": { x: 339, y: 459, w: 101, h: 57 },
       "rm-114": { x: 339, y: 518, w: 101, h: 55 },
-      radio: { x: 440, y: 459, w: 53, h: 114 },
+      tv: { x: 440, y: 459, w: 53, h: 114 },
+      radio: { x: 440, y: 731, w: 53, h: 114 },
       "hm-lab": { x: 9, y: 584, w: 171, h: 126 },
-      "stock-b": { x: 40, y: 730, w: 89, h: 57 },
       "rm-117": { x: 184, y: 730, w: 101, h: 57 },
       "rm-116": { x: 184, y: 790, w: 101, h: 54 },
       "rm-112": { x: 339, y: 731, w: 101, h: 57 },
@@ -158,6 +173,12 @@ function imageRoomRect(
       "rm-106": { x: 237, y: 907, w: 53, h: 112 },
       "rm-105": { x: 293, y: 907, w: 96, h: 112 },
       "faculty-1f": { x: 392, y: 907, w: 104, h: 112 },
+      "cr-a": { x: 495, y: 971, w: 59, h: 47 },
+      "cr-b": { x: 519, y: 909, w: 36, h: 59 },
+      "cr-c": { x: 491, y: 280, w: 59, h: 62 },
+      ms: { x: 555, y: 390, w: 73, h: 58 },
+      ocd: { x: 620, y: 495, w: 31, h: 39 },
+      security: { x: 620, y: 765, w: 31, h: 42 },
       conference: { x: 558, y: 852, w: 74, h: 167 },
       supply: { x: 637, y: 894, w: 52, h: 125 },
       multimedia: { x: 692, y: 852, w: 43, h: 167 },
@@ -172,10 +193,14 @@ function shortName(name: string): string {
   return name.replace(/ \((New|Old) Building\)$/, "");
 }
 
+// Node coordinates per building:
+// - old: image pixels of the rotated floor plans
+// - new: plan coordinates
+// - CTMO / HM / CL: already plain image pixels
 function nodePoint(buildingId: BuildingId, x: number, y: number): Pt {
-  return buildingId === "old"
-    ? { x: 1365 - y, y: x }
-    : planPoint(x, y);
+  if (buildingId === "old") return { x: 1365 - y, y: x };
+  if (buildingId === "new") return planPoint(x, y);
+  return { x, y };
 }
 
 function isSelectableNode(id: string): boolean {
@@ -519,24 +544,34 @@ export default function CampusMap({
     return lines;
   }, [routeIds, buildingId, floor]);
 
+  // Walkable corridors drawn inside a building. CTMO, HM and the CL buildings
+  // always show them; the Old and New Buildings show them with "Show path nodes".
   const indoorWalkableEdges = useMemo(() => {
-    if (!showNodes || buildingId !== "old" || floor !== 1) return [];
+    const alwaysShow = buildingId !== "old" && buildingId !== "new";
+    if (!showNodes && !alwaysShow) return [];
+    const isOldNet = (id: string) =>
+      id.startsWith("OB-1-P") || id.startsWith("OB-1-D");
     return routingGraph.edges.flatMap((edge) => {
       const from = nodeById.get(edge.from);
       const to = nodeById.get(edge.to);
-      const isOldNetworkNode = (id: string) =>
-        id.startsWith("OB-1-P") || id.startsWith("OB-1-D");
+      if (!from || !to) return [];
       if (
-        !from ||
-        !to ||
-        !isOldNetworkNode(edge.from) ||
-        !isOldNetworkNode(edge.to)
+        buildingOfNode(edge.from) !== buildingId ||
+        buildingOfNode(edge.to) !== buildingId
       ) {
         return [];
       }
-      const fromPoint = nodePoint(buildingId, from.x, from.y);
-      const toPoint = nodePoint(buildingId, to.x, to.y);
-      return [{ key: `${edge.from}-${edge.to}`, fromPoint, toPoint }];
+      if (from.floor !== floor || to.floor !== floor) return [];
+      if (buildingId === "old" && !(isOldNet(edge.from) && isOldNet(edge.to))) {
+        return [];
+      }
+      return [
+        {
+          key: `${edge.from}-${edge.to}`,
+          fromPoint: nodePoint(buildingId, from.x, from.y),
+          toPoint: nodePoint(buildingId, to.x, to.y),
+        },
+      ];
     });
   }, [buildingId, floor, showNodes]);
 
@@ -577,9 +612,13 @@ export default function CampusMap({
     building.floors.find((f) => f.floor === floor) ?? building.floors[0];
   const indoorImage =
     phase === "building" || phase === "out"
-      ? indoorImages[buildingId === "ctmo" || buildingId === "cl-n" || buildingId === "cl-s"
-          ? buildingId
-          : `${buildingId}-${floor}`]
+      ? indoorImages[
+          buildingId === "ctmo" ||
+          buildingId === "cl-n" ||
+          buildingId === "cl-s"
+            ? buildingId
+            : `${buildingId}-${floor}`
+        ]
       : null;
 
   const pinKind = (id: string | undefined) =>
@@ -637,10 +676,8 @@ export default function CampusMap({
       }
     : vb;
   const campusViewBox = { x: 0, y: 0, ...CAMPUS_VIEWBOX };
-  const activeViewBox =
-    phase === "campus" ? campusViewBox : indoorViewBox;
-  const activeMapKey =
-    phase === "campus" ? "campus" : `${buildingId}-${floor}`;
+  const activeViewBox = phase === "campus" ? campusViewBox : indoorViewBox;
+  const activeMapKey = phase === "campus" ? "campus" : `${buildingId}-${floor}`;
 
   const builderCoordinatesFromEvent = (
     event: ReactMouseEvent<SVGSVGElement>,
@@ -702,10 +739,7 @@ export default function CampusMap({
       {
         id: points.length + 1,
         mapKey,
-        label:
-          phase === "campus"
-            ? "Campus"
-            : `${building.name}, ${plan.name}`,
+        label: phase === "campus" ? "Campus" : `${building.name}, ${plan.name}`,
         ...coordinates,
       },
     ]);
@@ -865,7 +899,9 @@ export default function CampusMap({
                     <text
                       x={cx}
                       y={cy}
-                      className={campusMap01 ? styles.imageLabelHidden : styles.label}
+                      className={
+                        campusMap01 ? styles.imageLabelHidden : styles.label
+                      }
                       fontSize={s.fontSize ?? 11}
                       textAnchor="middle"
                       dominantBaseline="central"
@@ -883,61 +919,58 @@ export default function CampusMap({
               {buildings
                 .filter((b) => b.id === "old" || b.id === "new")
                 .map((b) => {
-                const cx = b.rect.x + b.rect.w / 2;
-                const cy = b.rect.y + b.rect.h / 2;
-                const onRoute = routeIds.some(
-                  (id) => buildingOfNode(id) === b.id,
-                );
-                return (
-                  <g
-                    key={b.id}
-                    onClick={() => {
-                      if (!builderMode && phase === "campus") {
-                        enterBuilding(b.id);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`${b.name}, open floor plans`}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        if (phase === "campus") enterBuilding(b.id);
-                      }
-                    }}
-                  >
-                    <rect
-                      x={b.rect.x}
-                      y={b.rect.y}
-                      width={b.rect.w}
-                      height={b.rect.h}
-                      rx={4}
-                      className={styles.imageHitbox}
-                    />
-                    <text
-                      x={cx}
-                      y={cy - 10}
-                      className={styles.imageLabelHidden}
-                      fontSize={15}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      transform={`rotate(-90 ${cx} ${cy - 10})`}
+                  const cx = b.rect.x + b.rect.w / 2;
+                  const cy = b.rect.y + b.rect.h / 2;
+                  return (
+                    <g
+                      key={b.id}
+                      onClick={() => {
+                        if (!builderMode && phase === "campus") {
+                          enterBuilding(b.id);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${b.name}, open floor plans`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (phase === "campus") enterBuilding(b.id);
+                        }
+                      }}
                     >
-                      {b.name}
-                    </text>
-                    <text
-                      x={cx}
-                      y={b.rect.y + b.rect.h - 14}
-                      className={styles.imageLabelHidden}
-                      fontSize={8}
-                      textAnchor="middle"
-                    >
-                      Tap to enter
-                    </text>
-                    <title>{`${b.name}: click to see the floor plans`}</title>
-                  </g>
-                );
-              })}
+                      <rect
+                        x={b.rect.x}
+                        y={b.rect.y}
+                        width={b.rect.w}
+                        height={b.rect.h}
+                        rx={4}
+                        className={styles.imageHitbox}
+                      />
+                      <text
+                        x={cx}
+                        y={cy - 10}
+                        className={styles.imageLabelHidden}
+                        fontSize={15}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        transform={`rotate(-90 ${cx} ${cy - 10})`}
+                      >
+                        {b.name}
+                      </text>
+                      <text
+                        x={cx}
+                        y={b.rect.y + b.rect.h - 14}
+                        className={styles.imageLabelHidden}
+                        fontSize={8}
+                        textAnchor="middle"
+                      >
+                        Tap to enter
+                      </text>
+                      <title>{`${b.name}: click to see the floor plans`}</title>
+                    </g>
+                  );
+                })}
 
               {campusRoute.length > 1 && (
                 <polyline
@@ -968,17 +1001,6 @@ export default function CampusMap({
                     />
                   ) : null;
                 })()}
-              {showNodes &&
-                indoorWalkableEdges.map((edge) => (
-                  <line
-                    key={`walkable-edge-${edge.key}`}
-                    x1={edge.fromPoint.x}
-                    y1={edge.fromPoint.y}
-                    x2={edge.toPoint.x}
-                    y2={edge.toPoint.y}
-                    className={styles.nodeConnection}
-                  />
-                ))}
 
               {showNodes &&
                 routingGraph.nodes
@@ -1091,7 +1113,8 @@ export default function CampusMap({
                 })}
 
                 {plan.rooms.map((room: PlanRoom) => {
-                  const r = imageRoomRect(buildingId, floor, room.id) ??
+                  const r =
+                    imageRoomRect(buildingId, floor, room.id) ??
                     (indoorImage ? null : planRect(room));
                   if (!r) return null;
                   const lines = room.label ? room.label.split("\n") : [];
@@ -1197,6 +1220,18 @@ export default function CampusMap({
                   );
                 })}
 
+                {indoorWalkableEdges.map((edge) => (
+                  <line
+                    key={`walkable-edge-${edge.key}`}
+                    x1={edge.fromPoint.x}
+                    y1={edge.fromPoint.y}
+                    x2={edge.toPoint.x}
+                    y2={edge.toPoint.y}
+                    className={styles.nodeConnection}
+                    strokeWidth={6}
+                  />
+                ))}
+
                 {showNodes &&
                   routingGraph.nodes
                     .filter(
@@ -1296,6 +1331,19 @@ export default function CampusMap({
               >
                 <span aria-hidden="true">&larr;</span> Back to Campus Overview
               </button>
+              {(buildingId === "cl-n" || buildingId === "cl-s") && (
+                <button
+                  type="button"
+                  className={styles.backBtn}
+                  style={{ top: 56 }}
+                  onClick={() => {
+                    setBuildingId("old");
+                    setFloor(2);
+                  }}
+                >
+                  <span aria-hidden="true">&larr;</span> Old Building, 2nd Floor
+                </button>
+              )}
               <div
                 className={styles.floorSelector}
                 role="group"

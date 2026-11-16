@@ -630,6 +630,17 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.imageHitbox.roomAvailable {
+  fill: rgba(22, 163, 74, 0.28);
+  stroke: rgba(22, 163, 74, 0.8);
+  stroke-width: 2;
+}
+.imageHitbox.roomOccupied {
+  fill: rgba(220, 38, 38, 0.32);
+  stroke: rgba(220, 38, 38, 0.85);
+  stroke-width: 2;
+}
+
 :global(:root[data-theme="dark"]) .root {
   --ink: #e6ebff;
   --muted: #93a0c8;

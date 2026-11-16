@@ -1,4 +1,5 @@
 import { campusGraph } from "./graph";
+import { buildingById, buildingOfNode } from "./mapData";
 
 export interface ClaimableRoom {
   id: string;
@@ -7,11 +8,8 @@ export interface ClaimableRoom {
 }
 
 function placeOf(id: string, floor?: number): string {
-  const building = id.startsWith("NB-")
-    ? "New Building"
-    : id.startsWith("OB-")
-      ? "Old Building"
-      : "Campus";
+  const b = buildingOfNode(id);
+  const building = b ? buildingById[b].name : "Campus";
   return floor ? `${building}, Floor ${floor}` : building;
 }
 

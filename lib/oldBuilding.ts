@@ -2,6 +2,8 @@ import type { GraphEdge, GraphNode, NodeId } from "./graph";
 
 const INDOOR_METERS_PER_PIXEL = 0.04;
 
+type Point = { x: number; y: number };
+
 const nodes: GraphNode[] = [];
 const edges: GraphEdge[] = [];
 
@@ -19,11 +21,17 @@ function find(id: NodeId): GraphNode {
   return node;
 }
 
+function pixelDistance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// Edge weights are in meters, like every other indoor graph.
+function meters(a: Point, b: Point): number {
+  return Math.round(pixelDistance(a, b) * INDOOR_METERS_PER_PIXEL * 10) / 10;
+}
+
 function link(from: NodeId, to: NodeId): void {
-  const a = find(from);
-  const b = find(to);
-  const meters = Math.hypot(a.x - b.x, a.y - b.y) * INDOOR_METERS_PER_PIXEL;
-  edges.push({ from, to, weight: Math.round(meters * 10) / 10 });
+  edges.push({ from, to, weight: meters(find(from), find(to)) });
 }
 
 function addHall(floor: number, code: string, x: number, y: number): NodeId {
@@ -53,6 +61,10 @@ function addPlace(floor: number, hallId: NodeId, place: PlaceSpec): void {
   });
   link(hallId, id);
 }
+
+/* ------------------------------------------------------------------ */
+/* 2nd floor                                                           */
+/* ------------------------------------------------------------------ */
 
 const c1 = addHall(2, "C1", 700, 600);
 const c2 = addHall(2, "C2", 700, 860);
@@ -133,14 +145,42 @@ addPlace(2, c5, {
   claimable: true,
 });
 
+/* ------------------------------------------------------------------ */
+/* 1st floor: places and entrances                                     */
+/* ------------------------------------------------------------------ */
+
 const hall1 = addHall(1, "HALL", 450, 953);
 
 const floor1Places: PlaceSpec[] = [
-  { code: "CHEMISTRY", name: "Chemistry Lab RM 120", x: 230, y: 337, claimable: true },
-  { code: "HEALTH", name: "Health Science Lab RM 121", x: 330, y: 337, claimable: true },
-  { code: "BIOLOGY", name: "Biology Lab RM 122", x: 435, y: 337, claimable: true },
+  {
+    code: "CHEMISTRY",
+    name: "Chemistry Lab RM 120",
+    x: 230,
+    y: 337,
+    claimable: true,
+  },
+  {
+    code: "HEALTH",
+    name: "Health Science Lab RM 121",
+    x: 330,
+    y: 337,
+    claimable: true,
+  },
+  {
+    code: "BIOLOGY",
+    name: "Biology Lab RM 122",
+    x: 435,
+    y: 337,
+    claimable: true,
+  },
   { code: "CLINIC", name: "Clinic", x: 585, y: 337 },
-  { code: "STUDENT-GOV", name: "Student Government Office", x: 690, y: 418, claimable: true },
+  {
+    code: "STUDENT-GOV",
+    name: "Student Government Office",
+    x: 690,
+    y: 418,
+    claimable: true,
+  },
   { code: "RM119", name: "RM 119", x: 410, y: 985, claimable: true },
   { code: "RM118", name: "RM 118", x: 410, y: 1090, claimable: true },
   { code: "RM115", name: "RM 115", x: 610, y: 985, claimable: true },
@@ -150,62 +190,14 @@ const floor1Places: PlaceSpec[] = [
   { code: "RM116", name: "RM 116", x: 610, y: 1280, claimable: true },
   { code: "RM112", name: "RM 112", x: 765, y: 1180, claimable: true },
   { code: "RM113", name: "RM 113", x: 765, y: 1280, claimable: true },
-  {
-    code: "HM",
-    name: "HM LAB",
-    x: 119,
-    y: 907,
-    claimable: true,
-  },
-  {
-    code: "STOCK-A",
-    name: "Stock Room A",
-    x: 222,
-    y: 1108,
-    claimable: true,
-  },
-  {
-    code: "STOCK-B",
-    name: "Stock Room B",
-    x: 119,
-    y: 1064,
-    claimable: true,
-  },
-  {
-    code: "CLASS-A",
-    name: "RM 107",
-    x: 560,
-    y: 1155,
-    claimable: true,
-  },
-  {
-    code: "CLASS-B",
-    name: "RM 106",
-    x: 557,
-    y: 1068,
-    claimable: true,
-  },
-  {
-    code: "CLASS-C",
-    name: "RM 105",
-    x: 470,
-    y: 1356,
-    claimable: true,
-  },
-  {
-    code: "CLASS-D",
-    name: "RM 104",
-    x: 363,
-    y: 1356,
-    claimable: true,
-  },
-  {
-    code: "CLASS-E",
-    name: "RM 103",
-    x: 286,
-    y: 1356,
-    claimable: true,
-  },
+  { code: "HM", name: "HM LAB", x: 119, y: 907, claimable: true },
+  { code: "STOCK-A", name: "Stock Room A", x: 222, y: 1108, claimable: true },
+  { code: "STOCK-B", name: "Stock Room B", x: 119, y: 1064, claimable: true },
+  { code: "CLASS-A", name: "RM 107", x: 560, y: 1155, claimable: true },
+  { code: "CLASS-B", name: "RM 106", x: 557, y: 1068, claimable: true },
+  { code: "CLASS-C", name: "RM 105", x: 470, y: 1356, claimable: true },
+  { code: "CLASS-D", name: "RM 104", x: 363, y: 1356, claimable: true },
+  { code: "CLASS-E", name: "RM 103", x: 286, y: 1356, claimable: true },
   {
     code: "FACULTY-1F",
     name: "Faculty Room 1F",
@@ -213,18 +205,8 @@ const floor1Places: PlaceSpec[] = [
     y: 1352,
     claimable: true,
   },
-  {
-    code: "CR-A",
-    name: "CR A",
-    x: 734,
-    y: 1395,
-  },
-  {
-    code: "CR-B",
-    name: "CR B",
-    x: 751,
-    y: 1315,
-  },
+  { code: "CR-A", name: "CR A", x: 734, y: 1395 },
+  { code: "CR-B", name: "CR B", x: 751, y: 1315 },
   {
     code: "CONFERENCE",
     name: "Conference Room",
@@ -232,13 +214,7 @@ const floor1Places: PlaceSpec[] = [
     y: 1328,
     claimable: true,
   },
-  {
-    code: "SUPPLY",
-    name: "Supply Office",
-    x: 928,
-    y: 1359,
-    claimable: true,
-  },
+  { code: "SUPPLY", name: "Supply Office", x: 928, y: 1359, claimable: true },
   {
     code: "MULTIMEDIA",
     name: "Multimedia Room",
@@ -264,7 +240,7 @@ link("OB-1-ENTRANCE", hall1);
 nodes.push(
   {
     id: "OB-1-CL-N-EXIT",
-    name: "Exit to CL 1-4",
+    name: "Exit to CL 5-8",
     x: 900,
     y: 1040,
     kind: "gate",
@@ -273,7 +249,7 @@ nodes.push(
   },
   {
     id: "OB-1-CL-S-EXIT",
-    name: "Exit to CL 5-8",
+    name: "Exit to CL 1-4",
     x: 900,
     y: 1190,
     kind: "gate",
@@ -284,11 +260,12 @@ nodes.push(
 link("OB-1-CL-N-EXIT", hall1);
 link("OB-1-CL-S-EXIT", hall1);
 
-const imagePositions: Record<string, { x: number; y: number }> = {
-  "OB-1-HALL": { x: 520, y: 600 },
-  "OB-1-ENTRANCE": { x: 636, y: 1018 },
-  "OB-1-CL-N-EXIT": { x: 430, y: 180 },
-  "OB-1-CL-S-EXIT": { x: 690, y: 180 },
+// Positions on the floor-plan image (display coordinates before rotation).
+const imagePositions: Record<string, Point> = {
+  "OB-1-HALL": { x: 530, y: 585 }, // sits on the main walkway spine
+  "OB-1-ENTRANCE": { x: 657, y: 738 }, // front wall, beside the security desk
+  "OB-1-CL-N-EXIT": { x: 149.9, y: 397.1 }, // on exit door 4 (north side)
+  "OB-1-CL-S-EXIT": { x: 149.9, y: 907.5 }, // on exit door 3 (south side)
   "OB-1-CHEMISTRY": { x: 230, y: 337 },
   "OB-1-HEALTH": { x: 330, y: 337 },
   "OB-1-BIOLOGY": { x: 436, y: 337 },
@@ -337,9 +314,14 @@ const imagePositions: Record<string, { x: number; y: number }> = {
   "OB-2-CL-S": { x: 117, y: 1010 },
 };
 
+/* ------------------------------------------------------------------ */
+/* 1st floor: walkable network                                         */
+/* ------------------------------------------------------------------ */
+
+// Each group is a polyline of walkable points, in walking order.
 const walkablePointGroups = [
   [38, 39, 40],
-  [41, 42, 43, 44, 40, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55],
+  [41, 42, 43, 44, 40, 45, 46, 47, 48, 49, 50, 51, 52, 56, 53, 54, 55],
   [56, 57, 58, 59, 60, 61, 62, 63, 64],
   [65, 66, 67, 68, 69, 70, 71, 72],
   [73, 74, 76, 75],
@@ -351,106 +333,9 @@ const walkablePointGroups = [
   [96, 87],
 ] as const;
 
-const walkablePointCoordinates: Record<number, { x: number; y: number }> = {
-  1: { x: 680.9, y: 701.4 }, 2: { x: 643.9, y: 703.7 }, 3: { x: 605, y: 704.9 },
-  4: { x: 562.2, y: 707.2 }, 5: { x: 522, y: 709.6 }, 6: { x: 527, y: 737.9 },
-  7: { x: 518.2, y: 768.5 }, 8: { x: 519.5, y: 787.4 }, 9: { x: 522, y: 821.5 },
-  10: { x: 520.7, y: 843.9 }, 11: { x: 515.7, y: 872.2 }, 12: { x: 508.2, y: 895.8 },
-  13: { x: 506.9, y: 937 }, 14: { x: 535.8, y: 874.6 }, 15: { x: 538.3, y: 840.4 },
-  16: { x: 539.6, y: 802.7 }, 17: { x: 540.9, y: 761.4 }, 18: { x: 549.7, y: 737.9 },
-  19: { x: 581.1, y: 737.9 }, 20: { x: 611.3, y: 734.3 }, 21: { x: 631.4, y: 734.3 },
-  22: { x: 588.6, y: 755.6 }, 23: { x: 589.9, y: 779.1 }, 24: { x: 593.7, y: 816.8 },
-  25: { x: 608.7, y: 823.9 }, 26: { x: 623.8, y: 833.3 }, 27: { x: 637.7, y: 854.5 },
-  28: { x: 656.5, y: 862.8 }, 29: { x: 519.5, y: 687.2 }, 30: { x: 519.5, y: 653 },
-  31: { x: 520.7, y: 608.3 }, 32: { x: 522, y: 588.2 }, 33: { x: 518.2, y: 554.1 },
-  34: { x: 514.5, y: 512.8 }, 35: { x: 515.7, y: 482.2 }, 36: { x: 520.7, y: 433.9 },
-  37: { x: 518.2, y: 383.2 }, 38: { x: 517, y: 479.8 }, 39: { x: 522, y: 372.6 },
-  40: { x: 682.9, y: 590.6 }, 41: { x: 630.1, y: 587.1 }, 42: { x: 598.7, y: 591.8 },
-  43: { x: 567.3, y: 596.5 }, 44: { x: 539.6, y: 597.7 }, 45: { x: 550.9, y: 694.3 },
-  46: { x: 550.9, y: 657.8 }, 47: { x: 548.4, y: 624.8 }, 48: { x: 579.8, y: 689.6 },
-  49: { x: 581.1, y: 661.3 }, 50: { x: 576.1, y: 630.7 }, 51: { x: 608.7, y: 687.2 },
-  52: { x: 608.7, y: 656.6 }, 53: { x: 602.5, y: 628.3 }, 54: { x: 635.1, y: 686 },
-  55: { x: 635.1, y: 646 }, 56: { x: 633.9, y: 625.9 }, 57: { x: 542.1, y: 581.2 },
-  58: { x: 539.6, y: 550.5 }, 59: { x: 538.3, y: 524.6 }, 60: { x: 537.1, y: 486.9 },
-  61: { x: 532.1, y: 438.6 }, 62: { x: 564.7, y: 570.6 }, 63: { x: 563.5, y: 529.3 },
-  64: { x: 564.7, y: 484.5 }, 65: { x: 582.3, y: 569.4 }, 66: { x: 592.4, y: 515.2 },
-  67: { x: 599.9, y: 489.3 }, 68: { x: 613.8, y: 562.3 }, 69: { x: 626.3, y: 472.8 },
-  70: { x: 554.7, y: 759.1 }, 71: { x: 557.2, y: 780.3 }, 72: { x: 563.5, y: 812.1 },
-  73: { x: 577.3, y: 832.2 }, 74: { x: 488.1, y: 867.5 }, 75: { x: 442.8, y: 865.1 },
-  76: { x: 417.6, y: 861.6 }, 77: { x: 377.4, y: 858.1 }, 78: { x: 325.9, y: 861.6 },
-  79: { x: 256.7, y: 862.8 }, 80: { x: 210.2, y: 856.9 }, 81: { x: 175, y: 855.7 },
-  82: { x: 151.1, y: 874.6 }, 83: { x: 153.6, y: 892.2 }, 84: { x: 152.4, y: 902.9 },
-  85: { x: 195.1, y: 874.6 }, 86: { x: 232.8, y: 876.9 }, 87: { x: 270.6, y: 886.4 },
-  88: { x: 312, y: 885.2 }, 89: { x: 346, y: 872.2 }, 90: { x: 402.6, y: 878.1 },
-  91: { x: 459.1, y: 881.6 }, 92: { x: 305.8, y: 851 }, 93: { x: 307, y: 818 },
-  94: { x: 308.3, y: 787.4 }, 95: { x: 310.8, y: 765 }, 96: { x: 310.8, y: 717.9 },
-  97: { x: 307, y: 739.1 }, 98: { x: 308.3, y: 683.7 }, 99: { x: 310.8, y: 653 },
-  100: { x: 309.5, y: 631.8 }, 101: { x: 309.5, y: 610.6 }, 102: { x: 304.5, y: 592.9 },
-  103: { x: 304.5, y: 571.7 }, 104: { x: 309.5, y: 555.2 }, 105: { x: 305.8, y: 530.5 },
-  106: { x: 304.5, y: 506.9 }, 107: { x: 302, y: 468 }, 108: { x: 304.5, y: 498.7 },
-  109: { x: 302, y: 461 }, 110: { x: 298.2, y: 451.5 }, 111: { x: 154.9, y: 405.6 },
-  112: { x: 153.6, y: 442.1 }, 113: { x: 188.8, y: 446.8 }, 114: { x: 211.5, y: 444.5 },
-  115: { x: 244.2, y: 449.2 }, 116: { x: 271.8, y: 448 }, 117: { x: 295.7, y: 443.3 },
-  118: { x: 332.2, y: 443.3 }, 119: { x: 374.9, y: 444.5 }, 120: { x: 400, y: 445.7 },
-  121: { x: 430.2, y: 444.5 }, 122: { x: 476.7, y: 444.5 }, 123: { x: 490.6, y: 417.4 },
-  124: { x: 436.5, y: 424.4 }, 125: { x: 396.3, y: 423.3 }, 126: { x: 359.8, y: 425.6 },
-  127: { x: 325.9, y: 424.4 }, 128: { x: 294.4, y: 424.4 }, 129: { x: 244.2, y: 424.4 },
-  130: { x: 211.5, y: 423.3 }, 131: { x: 181.3, y: 424.4 }, 132: { x: 275.6, y: 703.7 },
-  133: { x: 275.6, y: 670.7 }, 134: { x: 269.3, y: 629.5 }, 135: { x: 269.3, y: 596.5 },
-  136: { x: 235.4, y: 700.2 }, 137: { x: 231.6, y: 671.9 }, 138: { x: 234.1, y: 635.4 },
-  139: { x: 234.1, y: 610.6 }, 140: { x: 196.4, y: 689.6 }, 141: { x: 193.9, y: 654.2 },
-  142: { x: 196.4, y: 609.4 }, 143: { x: 334.7, y: 710.8 }, 144: { x: 334.7, y: 674.3 },
-  145: { x: 334.7, y: 648.3 }, 146: { x: 329.6, y: 600 }, 147: { x: 358.6, y: 702.5 },
-  148: { x: 366.1, y: 662.5 }, 149: { x: 364.8, y: 642.4 }, 150: { x: 361.1, y: 615.3 },
-  151: { x: 383.7, y: 666 }, 152: { x: 406.3, y: 666 }, 153: { x: 383.7, y: 636.5 },
-  154: { x: 422.7, y: 637.7 }, 155: { x: 457.9, y: 635.4 }, 156: { x: 485.5, y: 646 },
-  157: { x: 469.2, y: 716.7 }, 158: { x: 499.4, y: 709.6 }, 159: { x: 447.8, y: 677.8 },
-  160: { x: 488.1, y: 673.1 }, 161: { x: 459.1, y: 620 }, 162: { x: 493.1, y: 623.6 },
-  163: { x: 475.5, y: 600 }, 164: { x: 493.1, y: 594.1 },
-};
-
-function alignY(numbers: number[], y: number): void {
-  numbers.forEach((number) => {
-    walkablePointCoordinates[number].y = y;
-  });
-}
-
-function alignX(numbers: number[], x: number): void {
-  numbers.forEach((number) => {
-    walkablePointCoordinates[number].x = x;
-  });
-}
-
-alignY([1, 2, 3, 4, 5, 157, 158], 705);
-alignX([5, 6, 7, 8, 9, 10, 11, 12, 13], 520);
-alignX([14, 15, 16, 17, 18], 538);
-alignY([18, 19, 20, 21], 738);
-alignX([29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39], 520);
-alignY([40, 41, 42, 43, 44], 593);
-alignX([45, 46, 47], 550);
-alignX([48, 49, 50], 580);
-alignX([51, 52, 53], 609);
-alignX([54, 55, 56], 635);
-alignX([57, 58, 59, 60, 61], 540);
-alignX([62, 63, 64], 564);
-alignY([74, 75, 76, 77, 78, 79, 80, 81], 863);
-alignX([82, 83, 84], 152);
-alignY([85, 86, 87, 88, 89, 90, 91], 878);
-alignX([92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110], 307);
-alignY([112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122], 444);
-alignY([123, 124, 125, 126, 127, 128, 129, 130, 131], 424);
-alignX([132, 133, 134, 135], 270);
-alignX([136, 137, 138, 139], 234);
-alignX([140, 141, 142], 195);
-alignX([143, 144, 145, 146], 334);
-alignX([147, 148, 149, 150], 362);
-alignY([151, 152], 666);
-alignY([153, 154, 155, 156], 640);
-alignY([159, 160], 676);
-alignY([161, 162], 622);
-alignY([163, 164], 597);
-
-const suppliedPathCoordinates: Record<number, { x: number; y: number }> = {
+// Points clicked on the map with "Build map nodes". They are straightened
+// by the snap calls below, so small click errors don't matter.
+const walkablePointCoordinates: Record<number, Point> = {
   38: { x: 616.3, y: 705.1 },
   39: { x: 577.3, y: 702.6 },
   40: { x: 539.6, y: 701.4 },
@@ -511,10 +396,49 @@ const suppliedPathCoordinates: Record<number, { x: number; y: number }> = {
   95: { x: 620.1, y: 472.5 },
   96: { x: 586.1, y: 648.6 },
 };
-Object.keys(walkablePointCoordinates).forEach((key) => {
-  delete walkablePointCoordinates[Number(key)];
-});
-Object.assign(walkablePointCoordinates, suppliedPathCoordinates);
+
+// Snap the walkway to straight horizontal / vertical lines.
+// x/y are building coordinates; the map draws them rotated 90 degrees.
+function snapX(numbers: number[], x: number): void {
+  numbers.forEach((n) => {
+    walkablePointCoordinates[n].x = x;
+  });
+}
+
+function snapY(numbers: number[], y: number): void {
+  numbers.forEach((n) => {
+    walkablePointCoordinates[n].y = y;
+  });
+}
+
+// main spine (the long line drawn top to bottom)
+snapX([73, 74, 76, 75, 43, 44, 40, 45, 46, 47, 48], 530);
+snapY([41, 42, 43], 585); // branch to door 2
+snapY([38, 39, 40, 79], 703); // branch to door 1
+snapY([75, 92], 543); // link from the spine to the right column
+
+// bottom corridor
+snapY([48, 49, 50, 51, 52, 56, 53, 54, 55], 878);
+
+// top corridor
+snapY([65, 66, 67, 68, 69, 70, 71, 72, 74], 434);
+
+// left vertical corridor
+snapX([56, 57, 58, 59, 60, 61, 62, 63, 64, 68], 306);
+
+// middle horizontal corridor
+snapY([84, 83, 60, 82, 81, 78, 77, 44, 96], 650);
+snapX([78, 79, 80], 462);
+
+// far-left vertical
+snapX([84, 85, 86], 211);
+
+// right column
+snapX([92, 93, 94], 588);
+snapY([94, 95], 471);
+snapX([96, 87, 88, 89], 588);
+snapY([89, 90], 823);
+snapX([90, 91], 626);
 
 const walkableNodes: GraphNode[] = Object.entries(walkablePointCoordinates).map(
   ([number, position]) => ({
@@ -527,7 +451,7 @@ const walkableNodes: GraphNode[] = Object.entries(walkablePointCoordinates).map(
   }),
 );
 
-const doorPointCoordinates: Record<number, { x: number; y: number }> = {
+const doorPointCoordinates: Record<number, Point> = {
   1: { x: 650.7, y: 701.4 },
   2: { x: 650.5, y: 583.2 },
   3: { x: 149.9, y: 907.5 },
@@ -569,9 +493,10 @@ const doorPointCoordinates: Record<number, { x: number; y: number }> = {
 const doorNodes: GraphNode[] = Object.entries(doorPointCoordinates).map(
   ([number, position]) => ({
     id: `OB-1-D${number.padStart(2, "0")}`,
-    name: Number(number) <= 4
-      ? `Old Building 1F exit door ${number}`
-      : `Old Building 1F door ${number}`,
+    name:
+      Number(number) <= 4
+        ? `Old Building 1F exit door ${number}`
+        : `Old Building 1F door ${number}`,
     ...position,
     kind: "junction",
     floor: 1,
@@ -587,23 +512,22 @@ function doorNodeId(number: number): NodeId {
   return `OB-1-D${number.toString().padStart(2, "0")}`;
 }
 
-function distanceBetween(a: { x: number; y: number }, b: { x: number; y: number }): number {
-  return Math.round(Math.hypot(a.x - b.x, a.y - b.y) * 10) / 10;
+const walkableEdges: GraphEdge[] = [];
+
+function linkWalkable(from: number, to: number): void {
+  walkableEdges.push({
+    from: walkableNodeId(from),
+    to: walkableNodeId(to),
+    weight: meters(
+      walkablePointCoordinates[from],
+      walkablePointCoordinates[to],
+    ),
+  });
 }
 
-const walkableEdges: GraphEdge[] = [];
 for (const group of walkablePointGroups) {
   for (let index = 1; index < group.length; index += 1) {
-    const from = group[index - 1];
-    const to = group[index];
-    walkableEdges.push({
-      from: walkableNodeId(from),
-      to: walkableNodeId(to),
-      weight: distanceBetween(
-        walkablePointCoordinates[from],
-        walkablePointCoordinates[to],
-      ),
-    });
+    linkWalkable(group[index - 1], group[index]);
   }
 }
 
@@ -615,18 +539,13 @@ const connectingWalkableEdges: [number, number][] = [
   [44, 96],
   [78, 80],
   [79, 40],
+  [77, 44], // middle corridor meets the main spine
 ];
 for (const [from, to] of connectingWalkableEdges) {
-  walkableEdges.push({
-    from: walkableNodeId(from),
-    to: walkableNodeId(to),
-    weight: distanceBetween(
-      walkablePointCoordinates[from],
-      walkablePointCoordinates[to],
-    ),
-  });
+  linkWalkable(from, to);
 }
 
+// Which walkway point each door opens onto.
 const doorPathConnections: Record<number, number> = {
   1: 38,
   2: 41,
@@ -665,54 +584,53 @@ const doorPathConnections: Record<number, number> = {
   36: 65,
   37: 67,
 };
+
 const doorPathEdges: GraphEdge[] = Object.entries(doorPathConnections).map(
   ([doorNumber, pathNumber]) => {
-    const door = doorNodes.find((node) => node.id === doorNodeId(Number(doorNumber)));
-    const path = walkableNodes.find((node) => node.id === walkableNodeId(pathNumber));
+    const door = doorNodes.find(
+      (node) => node.id === doorNodeId(Number(doorNumber)),
+    );
+    const path = walkableNodes.find(
+      (node) => node.id === walkableNodeId(pathNumber),
+    );
     if (!door || !path) {
-      throw new Error(`oldBuilding: invalid door/path connection ${doorNumber} -> ${pathNumber}`);
+      throw new Error(
+        `oldBuilding: invalid door/path connection ${doorNumber} -> ${pathNumber}`,
+      );
     }
-  return {
-    from: door.id,
-    to: path.id,
-    weight: distanceBetween(door, path),
-  };
+    return { from: door.id, to: path.id, weight: meters(door, path) };
   },
 );
 
-const walkableNodeIds = new Set(walkableNodes.map((node) => node.id));
-const exitDoorIds = new Set([1, 2, 3, 4].map(doorNodeId));
-const walkableAdjacency = new Map(
-  [...walkableNodes, ...doorNodes].map((node) => [
-    node.id,
-    new Set<NodeId>(),
-  ]),
+// Sanity check: every door and walkway point must reach exit doors 1-4.
+const networkIds = new Set<NodeId>(
+  [...walkableNodes, ...doorNodes].map((node) => node.id),
+);
+const adjacency = new Map<NodeId, Set<NodeId>>(
+  [...networkIds].map((id) => [id, new Set<NodeId>()]),
 );
 for (const edge of [...walkableEdges, ...doorPathEdges]) {
-  if (
-    (!walkableNodeIds.has(edge.from) && !doorNodes.some((node) => node.id === edge.from)) ||
-    (!walkableNodeIds.has(edge.to) && !doorNodes.some((node) => node.id === edge.to))
-  ) {
-    continue;
-  }
-  walkableAdjacency.get(edge.from)?.add(edge.to);
-  walkableAdjacency.get(edge.to)?.add(edge.from);
+  adjacency.get(edge.from)?.add(edge.to);
+  adjacency.get(edge.to)?.add(edge.from);
 }
 
-const visitedExitNetwork = new Set<NodeId>();
-const pendingExitNetwork = [...exitDoorIds];
-while (pendingExitNetwork.length > 0) {
-  const nodeId = pendingExitNetwork.pop();
-  if (!nodeId || visitedExitNetwork.has(nodeId)) continue;
-  visitedExitNetwork.add(nodeId);
-  pendingExitNetwork.push(...(walkableAdjacency.get(nodeId) ?? []));
+const reachable = new Set<NodeId>();
+const pending: NodeId[] = [1, 2, 3, 4].map(doorNodeId);
+while (pending.length > 0) {
+  const id = pending.pop();
+  if (!id || reachable.has(id)) continue;
+  reachable.add(id);
+  pending.push(...(adjacency.get(id) ?? []));
 }
-const validPathAndDoorCount = walkableNodes.length + doorNodes.length;
-if (visitedExitNetwork.size !== validPathAndDoorCount) {
+if (reachable.size !== networkIds.size) {
   throw new Error(
     "oldBuilding: every valid door and pathway node must reach exit doors 1-4",
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Final graph                                                         */
+/* ------------------------------------------------------------------ */
 
 const positionedNodes = nodes.map((node) => {
   const position = imagePositions[node.id];
@@ -722,55 +640,61 @@ const positionedNodes = nodes.map((node) => {
 const positionedNodeById = new Map(
   positionedNodes.map((node) => [node.id, node]),
 );
+
+// Rooms and entrances on 1F connect to the nearest door, not to the hall.
 const floor1AccessibleNodeIds = new Set(
   positionedNodes
     .filter(
       (node) =>
-        node.floor === 1 &&
-        (node.kind === "entrance" || node.kind === "gate"),
+        node.floor === 1 && (node.kind === "entrance" || node.kind === "gate"),
     )
     .map((node) => node.id),
 );
-const nearestDoorNode = (nodeId: string): GraphNode => {
+
+function nearestDoorNode(nodeId: string): GraphNode {
   const node = positionedNodeById.get(nodeId);
   if (!node) throw new Error(`oldBuilding: no node with id "${nodeId}"`);
   return doorNodes.reduce((nearest, candidate) =>
-    distanceBetween(node, candidate) < distanceBetween(node, nearest)
+    pixelDistance(node, candidate) < pixelDistance(node, nearest)
       ? candidate
       : nearest,
   );
+}
+
+// These gates sit on the building edge and join the network at a fixed point,
+// so no path ever runs outside the building.
+const networkNodeById = new Map(
+  [...walkableNodes, ...doorNodes].map((node) => [node.id, node]),
+);
+const fixedAccess: Record<string, NodeId> = {
+  "OB-1-ENTRANCE": walkableNodeId(87),
+  "OB-1-CL-N-EXIT": doorNodeId(4),
+  "OB-1-CL-S-EXIT": doorNodeId(3),
 };
 
 const roomDoorEdges: GraphEdge[] = [];
 for (const roomId of floor1AccessibleNodeIds) {
-  const nearest = nearestDoorNode(roomId);
   const room = positionedNodeById.get(roomId);
   if (!room) continue;
+  const target =
+    networkNodeById.get(fixedAccess[roomId] ?? "") ?? nearestDoorNode(roomId);
   roomDoorEdges.push({
     from: roomId,
-    to: nearest.id,
-    weight: distanceBetween(room, nearest),
+    to: target.id,
+    weight: meters(room, target),
   });
 }
 
 const hallWalkableEdge: GraphEdge = {
   from: hall1,
   to: walkableNodeId(43),
-  weight: distanceBetween(
-    imagePositions[hall1],
-    walkablePointCoordinates[43],
-  ),
+  weight: meters(imagePositions[hall1], walkablePointCoordinates[43]),
 };
+
 const directRoomEdges = edges.filter(
   (edge) =>
-    !(
-      edge.from === hall1 &&
-      floor1AccessibleNodeIds.has(edge.to)
-    ) &&
-    !(
-      edge.to === hall1 &&
-      floor1AccessibleNodeIds.has(edge.from)
-    ),
+    !(edge.from === hall1 && floor1AccessibleNodeIds.has(edge.to)) &&
+    !(edge.to === hall1 && floor1AccessibleNodeIds.has(edge.from)),
 );
 
 export const oldBuildingNodes: GraphNode[] = [
@@ -778,6 +702,7 @@ export const oldBuildingNodes: GraphNode[] = [
   ...walkableNodes,
   ...doorNodes,
 ];
+
 export const oldBuildingEdges: GraphEdge[] = [
   ...directRoomEdges,
   ...walkableEdges,

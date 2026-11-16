@@ -42,6 +42,8 @@ const outdoorNodes: GraphNode[] = [
     y: 185,
     kind: "junction",
   },
+  // Benches sit just below the top path.
+  { id: "Benches", name: "Benches", x: 183, y: 185, kind: "entrance" },
   {
     id: "Top path (center)",
     name: "Top path (center)",
@@ -70,6 +72,14 @@ const outdoorNodes: GraphNode[] = [
     x: 98,
     y: 254,
     kind: "junction",
+  },
+  // Campus comfort room, beside the west path.
+  {
+    id: "Comfort room",
+    name: "Comfort room",
+    x: 98,
+    y: 221,
+    kind: "entrance",
   },
   {
     id: "West path (north)",
@@ -109,6 +119,8 @@ const outdoorNodes: GraphNode[] = [
     y: 298,
     kind: "junction",
   },
+  // Gymnasium, reached from the center path on its west side.
+  { id: "Gymnasium", name: "Gymnasium", x: 221, y: 380, kind: "entrance" },
   {
     id: "Center path (middle)",
     name: "Center path (middle)",
@@ -139,6 +151,8 @@ const outdoorNodes: GraphNode[] = [
     y: 597,
     kind: "junction",
   },
+  // Stage, reached from the path just below it.
+  { id: "Stage", name: "Stage", x: 250, y: 597, kind: "entrance" },
   { id: "Smart Room", name: "Smart Room", x: 277, y: 597, kind: "entrance" },
   {
     id: "East path (lower)",
@@ -185,10 +199,12 @@ function edge(from: NodeId, to: NodeId): GraphEdge {
 
 const outdoorEdges: GraphEdge[] = [
   edge("Gate 2", "Top path (center)"),
-  edge("Top path (west)", "Top path (center)"),
+  edge("Top path (west)", "Benches"),
+  edge("Benches", "Top path (center)"),
   edge("Top path (center)", "CTMO building"),
   edge("CTMO building", "Northeast corner"),
-  edge("Top path (west)", "Northwest corner"),
+  edge("Top path (west)", "Comfort room"),
+  edge("Comfort room", "Northwest corner"),
   edge("Northwest corner", "West path (north)"),
   edge("West path (north)", "Maintenance room"),
   edge("Maintenance room", "Canteen area"),
@@ -196,7 +212,8 @@ const outdoorEdges: GraphEdge[] = [
 
   edge("Top path (center)", "Center path (top)"),
   edge("Center path (top)", "Center path (north)"),
-  edge("Center path (north)", "Center path (middle)"),
+  edge("Center path (north)", "Gymnasium"),
+  edge("Gymnasium", "Center path (middle)"),
   edge("Center path (middle)", "Center path (south)"),
   edge("Center path (south)", "Center path (lower)"),
   edge("Center path (lower)", "Gate 1"),
@@ -207,7 +224,8 @@ const outdoorEdges: GraphEdge[] = [
   edge("East path (south)", "East path (lower)"),
   edge("East path (lower)", "Southeast corner"),
 
-  edge("Center path (south)", "Smart Room"),
+  edge("Center path (south)", "Stage"),
+  edge("Stage", "Smart Room"),
   edge("Smart Room", "East path (lower)"),
 
   edge("Southwest corner", "Learning Room"),

@@ -213,6 +213,10 @@ export default function NavigationView() {
             ["campus", "Grounds", { kind: "campus" }],
             ["new", "New Building", { kind: "building", id: "new" }],
             ["old", "Old Building", { kind: "building", id: "old" }],
+            ["ctmo", "CTMO", { kind: "building", id: "ctmo" }],
+            ["hm", "HM Building", { kind: "building", id: "hm" }],
+            ["cl-s", "CL 1-4", { kind: "building", id: "cl-s" }],
+            ["cl-n", "CL 5-8", { kind: "building", id: "cl-n" }],
           ] as [string, string, MapFocus][]
         ).map(([id, label, f]) => (
           <button
