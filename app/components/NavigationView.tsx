@@ -63,7 +63,7 @@ export default function NavigationView() {
   const [view, setView] = useState<"campus" | BuildingId>("campus");
   const [focus, setFocus] = useState<Focus>(null);
   const [route, setRoute] = useState<RouteSummary | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const focusNonce = useRef(0);
   const [quickRoute, setQuickRoute] = useState(true);
   const [showNodes, setShowNodes] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -109,10 +109,12 @@ export default function NavigationView() {
     return () => navigator.geolocation.clearWatch(watch);
   }, []);
 
-  const goTo = (f: MapFocus) => {
-    setNonce((n) => n + 1);
-    setFocus({ ...f, nonce: nonce + 1 });
-  };
+  const goTo = useCallback((f: MapFocus) => {
+    const nextView = f.kind === "campus" ? "campus" : f.id;
+    focusNonce.current += 1;
+    setView(nextView);
+    setFocus({ ...f, nonce: focusNonce.current });
+  }, []);
 
   useEffect(() => {
     const v = params.get("view");

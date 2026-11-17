@@ -279,6 +279,41 @@
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
 }
 
+.clExitMarker circle {
+  fill: var(--route);
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.clExitMarker text {
+  fill: #ffffff;
+  font-size: 5px;
+  font-weight: 700;
+}
+
+.clRoomIndicator {
+  cursor: pointer;
+}
+
+.clRoomIndicator circle {
+  fill: var(--mid);
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.3));
+}
+
+.clRoomIndicator:hover circle,
+.clRoomIndicator:focus circle {
+  fill: var(--mid-hover);
+}
+
+.clRoomIndicator text {
+  fill: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 .nodeConnection {
   stroke: #2563eb;
   stroke-width: 2;

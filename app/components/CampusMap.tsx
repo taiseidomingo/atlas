@@ -63,6 +63,33 @@ const outdoorEdges = campusGraph.edges.filter(
   (e) => !buildingOfNode(e.from) && !buildingOfNode(e.to),
 );
 
+const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
+  "cl-n": { x: 132, y: 306 },
+  "cl-s": { x: 132, y: 590 },
+};
+
+const clIndicatorPoints: Record<"cl-n" | "cl-s", Pt> = {
+  "cl-n": { x: 970, y: 190 },
+  "cl-s": { x: 385, y: 190 },
+};
+
+function clExitForNode(id: string): Pt | null {
+  if (
+    id.startsWith("CL-N-") ||
+    id === "OB-1-CL-N-EXIT" ||
+    id === "OB-2-CL-N"
+  ) {
+    return clExitPoints["cl-n"];
+  }
+  if (
+    id.startsWith("CL-S-") ||
+    id === "OB-1-CL-S-EXIT" ||
+    id === "OB-2-CL-S"
+  ) {
+    return clExitPoints["cl-s"];
+  }
+  return null;
+}
 
 const indoorImages: Record<
   string,
@@ -519,6 +546,11 @@ export default function CampusMap({
     routeIds.forEach((id) => {
       const n = nodeById.get(id);
       if (!n) return;
+      const clExit = clExitForNode(id);
+      if (clExit) {
+        push(clExit);
+        return;
+      }
       const b = buildingOfNode(id);
       if (b) push(buildingById[b].door);
       else push({ x: n.x, y: n.y });
@@ -579,16 +611,24 @@ export default function CampusMap({
     if (!focus) return;
     const timer = setTimeout(() => {
       if (focus.kind === "campus") {
-        if (phase === "building") backToCampus();
-      } else if (phase === "campus") {
-        enterBuilding(focus.id, focus.floor ?? 1);
-      } else if (phase === "building") {
+        clearTimers();
+        setZoomed(false);
+        setPhase("campus");
+      } else {
+        clearTimers();
         setBuildingId(focus.id);
         setFloor(focus.floor ?? 1);
+        if (phase === "building") {
+          setZoomed(false);
+          return;
+        }
+        setPhase("in");
+        setZoomed(true);
+        after(760, () => setPhase("building"));
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [focus, phase, backToCampus, enterBuilding]);
+  }, [focus, phase, after, clearTimers]);
 
   useEffect(() => {
     onViewChange?.(
@@ -629,6 +669,8 @@ export default function CampusMap({
   const pinPosCampus = (id: string): Pt | null => {
     const n = nodeById.get(id);
     if (!n) return null;
+    const clExit = clExitForNode(id);
+    if (clExit) return clExit;
     const b = buildingOfNode(id);
     if (b) {
       const r = buildingById[b].rect;
@@ -982,6 +1024,28 @@ export default function CampusMap({
                 />
               )}
 
+              {(["cl-n", "cl-s"] as const).map((id) => {
+                const point = clExitPoints[id];
+                return (
+                  <g
+                    key={id}
+                    className={styles.clExitMarker}
+                    transform={`translate(${point.x} ${point.y})`}
+                    pointerEvents="none"
+                  >
+                    <circle r={9} />
+                    <text y={1.8} textAnchor="middle">
+                      {id === "cl-s" ? "1–4" : "5–8"}
+                    </text>
+                    <title>
+                      {id === "cl-s"
+                        ? "Exit to CL Rooms 1–4"
+                        : "Exit to CL Rooms 5–8"}
+                    </title>
+                  </g>
+                );
+              })}
+
               {startId &&
                 (() => {
                   const p = pinPosCampus(startId);
@@ -1267,6 +1331,51 @@ export default function CampusMap({
                     />
                   ) : null,
                 )}
+
+                {buildingId === "old" && floor === 1 &&
+                  (["cl-s", "cl-n"] as const).map((id) => {
+                    const point = clIndicatorPoints[id];
+                    return (
+                      <g
+                        key={`cl-indicator-${id}`}
+                        className={styles.clRoomIndicator}
+                        transform={`translate(${point.x} ${point.y})`}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={
+                          id === "cl-s"
+                            ? "Open CL Rooms 1–4"
+                            : "Open CL Rooms 5–8"
+                        }
+                        onClick={() => {
+                          if (!builderMode) {
+                            setBuildingId(id);
+                            setFloor(1);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (
+                            !builderMode &&
+                            (e.key === "Enter" || e.key === " ")
+                          ) {
+                            e.preventDefault();
+                            setBuildingId(id);
+                            setFloor(1);
+                          }
+                        }}
+                      >
+                        <circle r={18} />
+                        <text y={2.8} textAnchor="middle">
+                          {id === "cl-s" ? "1–4" : "5–8"}
+                        </text>
+                        <title>
+                          {id === "cl-s"
+                            ? "Open CL Rooms 1–4"
+                            : "Open CL Rooms 5–8"}
+                        </title>
+                      </g>
+                    );
+                  })}
 
                 {builderMode &&
                   builderPoints
