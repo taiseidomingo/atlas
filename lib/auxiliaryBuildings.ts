@@ -27,20 +27,20 @@ function link(a: string, b: string) {
 interface Spec {
   prefix: string;
   floor: number;
-  corridorX: number; // walkable corridor line
-  doorX: number; // where room doors sit
+  corridorX: number;
+  doorX: number;
   rooms: { code: string; name: string; y: number }[];
-  extra?: { code: string; y: number }[]; // extra points on the corridor
+  extra?: { code: string; y: number }[];
   stairs?: { x: number; y: number };
   entrance?: {
     x: number;
     y: number;
     via?: { x: number; y: number };
-    spine: string; // corridor point the entrance joins
+    spine: string;
   };
 }
 
-// All coordinates are image pixels (768 x 1365), the same space as imageRoomRect.
+
 function addFloor(s: Spec) {
   const id = (c: string) => `${s.prefix}-${s.floor}-${c}`;
   const spine: { code: string; y: number }[] = [
@@ -123,7 +123,7 @@ function addFloor(s: Spec) {
   }
 }
 
-// CTMO: full-width rooms, entrance on the RIGHT edge level with CTMO 3.
+
 addFloor({
   prefix: "CTMO",
   floor: 1,
@@ -143,7 +143,7 @@ addFloor({
   ],
 });
 
-// HM: 3 floors joined by stairs (top-right box), 2 rooms per floor.
+
 [1, 2, 3].forEach((f) =>
   addFloor({
     prefix: "HM",
@@ -159,7 +159,7 @@ addFloor({
   }),
 );
 
-// CL 1-4 = SOUTH building (near Gate 1). Rooms on the right, corridor on the left.
+
 addFloor({
   prefix: "CL-S",
   floor: 1,
@@ -175,7 +175,7 @@ addFloor({
   ],
 });
 
-// CL 5-8 = NORTH building (near Gate 2). Rooms on the left, corridor on the right.
+
 addFloor({
   prefix: "CL-N",
   floor: 1,

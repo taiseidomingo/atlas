@@ -28,11 +28,11 @@ export interface CampusGraph {
   edges: GraphEdge[];
 }
 
-// Meters per map pixel for the campus drawing (462 x 822 map).
+
 export const METERS_PER_PIXEL = 0.17;
 
-// Every outdoor point sits on a walkway drawn between the buildings on the map.
-// x/y are map coordinates, the same ones used by lib/mapData.ts.
+
+
 const outdoorNodes: GraphNode[] = [
   { id: "Gate 2", name: "Gate 2", x: 218, y: 168, kind: "gate" },
   {
@@ -42,7 +42,7 @@ const outdoorNodes: GraphNode[] = [
     y: 185,
     kind: "junction",
   },
-  // Benches sit just below the top path.
+
   { id: "Benches", name: "Benches", x: 183, y: 185, kind: "entrance" },
   {
     id: "Top path (center)",
@@ -73,7 +73,7 @@ const outdoorNodes: GraphNode[] = [
     y: 254,
     kind: "junction",
   },
-  // Campus comfort room, beside the west path.
+
   {
     id: "Comfort room",
     name: "Comfort room",
@@ -104,7 +104,7 @@ const outdoorNodes: GraphNode[] = [
     kind: "junction",
   },
 
-  // Path between the CTMO and the Gymnasium (y = 292)
+
   {
     id: "Center path (top)",
     name: "Center path (top)",
@@ -119,7 +119,7 @@ const outdoorNodes: GraphNode[] = [
     y: 298,
     kind: "junction",
   },
-  // Gymnasium, reached from the center path on its west side.
+
   { id: "Gymnasium", name: "Gymnasium", x: 221, y: 380, kind: "entrance" },
   {
     id: "Center path (middle)",
@@ -143,7 +143,7 @@ const outdoorNodes: GraphNode[] = [
     kind: "junction",
   },
 
-  // Path between the Gymnasium stage and the Smart Room (y = 597)
+
   {
     id: "Center path (south)",
     name: "Center path (south)",
@@ -151,7 +151,7 @@ const outdoorNodes: GraphNode[] = [
     y: 597,
     kind: "junction",
   },
-  // Stage, reached from the path just below it.
+
   { id: "Stage", name: "Stage", x: 250, y: 597, kind: "entrance" },
   { id: "Smart Room", name: "Smart Room", x: 277, y: 597, kind: "entrance" },
   {
@@ -169,7 +169,7 @@ const outdoorNodes: GraphNode[] = [
     kind: "junction",
   },
 
-  // Path between the Old Building and the Learning Room (y = 629)
+
   {
     id: "Learning Room",
     name: "Learning Room",

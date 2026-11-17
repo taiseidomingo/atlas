@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.dataset.theme === "dark");
-  }, []);
+  const [dark, setDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.dataset.theme === "dark",
+  );
 
   const toggle = () => {
     const next = dark ? "light" : "dark";

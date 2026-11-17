@@ -33,7 +33,6 @@ export function claimRoom(nodeId: NodeId, professor: string): ClaimResult {
     return { ok: false, reason: "taken", heldBy: existing.professor };
   }
 
-  // A professor can only be in one room: claiming a new one leaves the old one.
   reservations.forEach((r, id) => {
     if (r.professor === professor && id !== nodeId) reservations.delete(id);
   });

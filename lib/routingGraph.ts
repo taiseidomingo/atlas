@@ -1,8 +1,6 @@
 import { campusGraph, CampusGraph, GraphEdge, GraphNode } from "./graph";
 import { buildingOfNode } from "./mapData";
 
-// Walkable paths get a node roughly every STEP_METERS so routes follow the real
-// walkway and GPS positions snap to a point at most about a meter away.
 export const STEP_METERS = 1;
 
 function frameOf(node: GraphNode): string {

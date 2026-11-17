@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { PlaceInfo } from "@/lib/placeInfo";
 import styles from "./NavigationView.module.css";
@@ -24,11 +25,13 @@ function Photo({ src }: { src: string }) {
       </div>
     );
   }
-  // eslint-disable-next-line @next/next/no-img-element
   return (
-    <img
+    <Image
       src={src}
       alt=""
+      width={800}
+      height={600}
+      unoptimized
       className={styles.photo}
       onError={() => setFailed(true)}
     />

@@ -116,9 +116,10 @@ export default function NavigationView() {
 
   useEffect(() => {
     const v = params.get("view");
-    if (v === "new" || v === "old") goTo({ kind: "building", id: v });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (v === "new" || v === "old") {
+      setFocus({ kind: "building", id: v, nonce: Date.now() });
+    }
+  }, [params]);
 
   const showDirections = () => {
     if (!start) return;

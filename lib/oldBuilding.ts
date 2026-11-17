@@ -25,7 +25,7 @@ function pixelDistance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// Edge weights are in meters, like every other indoor graph.
+
 function meters(a: Point, b: Point): number {
   return Math.round(pixelDistance(a, b) * INDOOR_METERS_PER_PIXEL * 10) / 10;
 }
@@ -62,9 +62,9 @@ function addPlace(floor: number, hallId: NodeId, place: PlaceSpec): void {
   link(hallId, id);
 }
 
-/* ------------------------------------------------------------------ */
-/* 2nd floor                                                           */
-/* ------------------------------------------------------------------ */
+
+
+
 
 const c1 = addHall(2, "C1", 700, 600);
 const c2 = addHall(2, "C2", 700, 860);
@@ -145,9 +145,9 @@ addPlace(2, c5, {
   claimable: true,
 });
 
-/* ------------------------------------------------------------------ */
-/* 1st floor: places and entrances                                     */
-/* ------------------------------------------------------------------ */
+
+
+
 
 const hall1 = addHall(1, "HALL", 450, 953);
 
@@ -260,12 +260,12 @@ nodes.push(
 link("OB-1-CL-N-EXIT", hall1);
 link("OB-1-CL-S-EXIT", hall1);
 
-// Positions on the floor-plan image (display coordinates before rotation).
+
 const imagePositions: Record<string, Point> = {
-  "OB-1-HALL": { x: 530, y: 585 }, // sits on the main walkway spine
-  "OB-1-ENTRANCE": { x: 657, y: 738 }, // front wall, beside the security desk
-  "OB-1-CL-N-EXIT": { x: 149.9, y: 397.1 }, // on exit door 4 (north side)
-  "OB-1-CL-S-EXIT": { x: 149.9, y: 907.5 }, // on exit door 3 (south side)
+  "OB-1-HALL": { x: 530, y: 585 },
+  "OB-1-ENTRANCE": { x: 657, y: 738 },
+  "OB-1-CL-N-EXIT": { x: 149.9, y: 397.1 },
+  "OB-1-CL-S-EXIT": { x: 149.9, y: 907.5 },
   "OB-1-CHEMISTRY": { x: 230, y: 337 },
   "OB-1-HEALTH": { x: 330, y: 337 },
   "OB-1-BIOLOGY": { x: 436, y: 337 },
@@ -314,11 +314,11 @@ const imagePositions: Record<string, Point> = {
   "OB-2-CL-S": { x: 117, y: 1010 },
 };
 
-/* ------------------------------------------------------------------ */
-/* 1st floor: walkable network                                         */
-/* ------------------------------------------------------------------ */
 
-// Each group is a polyline of walkable points, in walking order.
+
+
+
+
 const walkablePointGroups = [
   [38, 39, 40],
   [41, 42, 43, 44, 40, 45, 46, 47, 48, 49, 50, 51, 52, 56, 53, 54, 55],
@@ -333,8 +333,8 @@ const walkablePointGroups = [
   [96, 87],
 ] as const;
 
-// Points clicked on the map with "Build map nodes". They are straightened
-// by the snap calls below, so small click errors don't matter.
+
+
 const walkablePointCoordinates: Record<number, Point> = {
   38: { x: 616.3, y: 705.1 },
   39: { x: 577.3, y: 702.6 },
@@ -397,8 +397,8 @@ const walkablePointCoordinates: Record<number, Point> = {
   96: { x: 586.1, y: 648.6 },
 };
 
-// Snap the walkway to straight horizontal / vertical lines.
-// x/y are building coordinates; the map draws them rotated 90 degrees.
+
+
 function snapX(numbers: number[], x: number): void {
   numbers.forEach((n) => {
     walkablePointCoordinates[n].x = x;
@@ -411,29 +411,29 @@ function snapY(numbers: number[], y: number): void {
   });
 }
 
-// main spine (the long line drawn top to bottom)
-snapX([73, 74, 76, 75, 43, 44, 40, 45, 46, 47, 48], 530);
-snapY([41, 42, 43], 585); // branch to door 2
-snapY([38, 39, 40, 79], 703); // branch to door 1
-snapY([75, 92], 543); // link from the spine to the right column
 
-// bottom corridor
+snapX([73, 74, 76, 75, 43, 44, 40, 45, 46, 47, 48], 530);
+snapY([41, 42, 43], 585);
+snapY([38, 39, 40, 79], 703);
+snapY([75, 92], 543);
+
+
 snapY([48, 49, 50, 51, 52, 56, 53, 54, 55], 878);
 
-// top corridor
+
 snapY([65, 66, 67, 68, 69, 70, 71, 72, 74], 434);
 
-// left vertical corridor
+
 snapX([56, 57, 58, 59, 60, 61, 62, 63, 64, 68], 306);
 
-// middle horizontal corridor
+
 snapY([84, 83, 60, 82, 81, 78, 77, 44, 96], 650);
 snapX([78, 79, 80], 462);
 
-// far-left vertical
+
 snapX([84, 85, 86], 211);
 
-// right column
+
 snapX([92, 93, 94], 588);
 snapY([94, 95], 471);
 snapX([96, 87, 88, 89], 588);
@@ -539,13 +539,13 @@ const connectingWalkableEdges: [number, number][] = [
   [44, 96],
   [78, 80],
   [79, 40],
-  [77, 44], // middle corridor meets the main spine
+  [77, 44],
 ];
 for (const [from, to] of connectingWalkableEdges) {
   linkWalkable(from, to);
 }
 
-// Which walkway point each door opens onto.
+
 const doorPathConnections: Record<number, number> = {
   1: 38,
   2: 41,
@@ -602,7 +602,7 @@ const doorPathEdges: GraphEdge[] = Object.entries(doorPathConnections).map(
   },
 );
 
-// Sanity check: every door and walkway point must reach exit doors 1-4.
+
 const networkIds = new Set<NodeId>(
   [...walkableNodes, ...doorNodes].map((node) => node.id),
 );
@@ -628,9 +628,9 @@ if (reachable.size !== networkIds.size) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Final graph                                                         */
-/* ------------------------------------------------------------------ */
+
+
+
 
 const positionedNodes = nodes.map((node) => {
   const position = imagePositions[node.id];
@@ -641,7 +641,7 @@ const positionedNodeById = new Map(
   positionedNodes.map((node) => [node.id, node]),
 );
 
-// Rooms and entrances on 1F connect to the nearest door, not to the hall.
+
 const floor1AccessibleNodeIds = new Set(
   positionedNodes
     .filter(
@@ -661,8 +661,8 @@ function nearestDoorNode(nodeId: string): GraphNode {
   );
 }
 
-// These gates sit on the building edge and join the network at a fixed point,
-// so no path ever runs outside the building.
+
+
 const networkNodeById = new Map(
   [...walkableNodes, ...doorNodes].map((node) => [node.id, node]),
 );

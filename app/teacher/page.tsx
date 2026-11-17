@@ -50,7 +50,8 @@ export default function TeacherPage() {
   }, [loadClaims]);
 
   useEffect(() => {
-    loadSession();
+    const timer = setTimeout(loadSession, 0);
+    return () => clearTimeout(timer);
   }, [loadSession]);
 
   const login = async (e: FormEvent) => {
@@ -114,7 +115,7 @@ export default function TeacherPage() {
       >
         <h1 className="pageTitle">Teacher Login</h1>
         <p className="sub" style={{ margin: 0 }}>
-          Sign in to claim the room you're in, so students can find you.
+          Sign in to claim the room you&apos;re in, so students can find you.
         </p>
         <input
           className="input"

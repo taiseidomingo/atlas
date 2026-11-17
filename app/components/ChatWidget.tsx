@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import styles from "./ChatWidget.module.css";
 
 interface Msg {
@@ -14,6 +15,7 @@ interface NavigationRequest {
 }
 
 export default function ChatWidget() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
@@ -41,7 +43,7 @@ export default function ChatWidget() {
   const openNavigation = (navigation: NavigationRequest) => {
     const params = new URLSearchParams({ to: navigation.destinationId });
     if (navigation.startId) params.set("from", navigation.startId);
-    window.location.assign(`/navigation?${params.toString()}`);
+    router.push(`/navigation?${params.toString()}`);
   };
 
   const send = async (e: FormEvent) => {

@@ -63,7 +63,7 @@ const outdoorEdges = campusGraph.edges.filter(
   (e) => !buildingOfNode(e.from) && !buildingOfNode(e.to),
 );
 
-// CL 1-4 is the south building (map 10); CL 5-8 is the north building (map 11).
+
 const indoorImages: Record<
   string,
   { src: string; width: number; height: number; rotate?: boolean }
@@ -193,10 +193,10 @@ function shortName(name: string): string {
   return name.replace(/ \((New|Old) Building\)$/, "");
 }
 
-// Node coordinates per building:
-// - old: image pixels of the rotated floor plans
-// - new: plan coordinates
-// - CTMO / HM / CL: already plain image pixels
+
+
+
+
 function nodePoint(buildingId: BuildingId, x: number, y: number): Pt {
   if (buildingId === "old") return { x: 1365 - y, y: x };
   if (buildingId === "new") return planPoint(x, y);
@@ -467,12 +467,12 @@ export default function CampusMap({
     setStartId(null);
     setDestId(null);
     setSelectedId(null);
-  }, []);
+  }, [setStartId, setDestId, setSelectedId]);
 
   const swapPins = useCallback(() => {
     setStartId(destId);
     setDestId(startId);
-  }, [destId, startId]);
+  }, [destId, startId, setStartId, setDestId]);
 
   const route = useMemo(() => {
     if (!startId || !destId) return null;
@@ -544,8 +544,8 @@ export default function CampusMap({
     return lines;
   }, [routeIds, buildingId, floor]);
 
-  // Walkable corridors drawn inside a building. CTMO, HM and the CL buildings
-  // always show them; the Old and New Buildings show them with "Show path nodes".
+
+
   const indoorWalkableEdges = useMemo(() => {
     const alwaysShow = buildingId !== "old" && buildingId !== "new";
     if (!showNodes && !alwaysShow) return [];
@@ -577,16 +577,18 @@ export default function CampusMap({
 
   useEffect(() => {
     if (!focus) return;
-    if (focus.kind === "campus") {
-      if (phase === "building") backToCampus();
-    } else if (phase === "campus") {
-      enterBuilding(focus.id, focus.floor ?? 1);
-    } else if (phase === "building") {
-      setBuildingId(focus.id);
-      setFloor(focus.floor ?? 1);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus?.nonce]);
+    const timer = setTimeout(() => {
+      if (focus.kind === "campus") {
+        if (phase === "building") backToCampus();
+      } else if (phase === "campus") {
+        enterBuilding(focus.id, focus.floor ?? 1);
+      } else if (phase === "building") {
+        setBuildingId(focus.id);
+        setFloor(focus.floor ?? 1);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [focus, phase, backToCampus, enterBuilding]);
 
   useEffect(() => {
     onViewChange?.(

@@ -21,16 +21,12 @@ function navigationRequest(
 ): ChatNavigationRequest | null {
   const text = compact(message);
   const matches = navigableNodes
-    .flatMap((node) => {
-      const aliases = [
-        node.name,
-        node.name.replace(/\s*\([^)]*\)$/, ""),
-      ];
-      return aliases.map((alias) => ({
+    .flatMap((node) =>
+      [node.name, node.name.replace(/\s*\([^)]*\)$/, "")].map((alias) => ({
         id: node.id,
         alias: compact(alias),
-      }));
-    })
+      })),
+    )
     .filter((candidate) => candidate.alias.length > 2)
     .sort((a, b) => b.alias.length - a.alias.length)
     .map((candidate) => ({
@@ -38,10 +34,7 @@ function navigationRequest(
       index: text.indexOf(candidate.alias),
     }))
     .filter((candidate) => candidate.index >= 0)
-    .filter(
-      (candidate, index, all) =>
-        all.findIndex((other) => other.id === candidate.id) === index,
-    )
+    .filter((candidate, index, all) => all.findIndex((other) => other.id === candidate.id) === index)
     .sort((a, b) => a.index - b.index);
 
   if (forcedDestinationId && matches.length > 0) {

@@ -5,13 +5,6 @@ export interface GeoAnchor {
   y: number;
 }
 
-// Calibrate once: stand at (or right-click on Google Maps) two known points and
-// copy their latitude/longitude here. x/y are the same points on the campus map.
-// Gate 2 is (218, 168) and Gate 1 is (220, 690) in lib/graph.ts.
-//
-// Example (replace with the real numbers):
-//   { lat: 14.4001, lng: 120.9001, x: 218, y: 168 }, // Gate 2
-//   { lat: 14.3955, lng: 120.9003, x: 220, y: 690 }, // Gate 1
 export const GEO_ANCHORS: GeoAnchor[] = [];
 
 const M_PER_DEG_LAT = 110540;
@@ -27,8 +20,6 @@ function toMeters(lat: number, lng: number, origin: GeoAnchor) {
   const n = (lat - origin.lat) * M_PER_DEG_LAT;
   return { re: e, im: -n };
 }
-
-// Two anchors fix position, scale and rotation, so the map does not have to be north-up.
 export function toMapPoint(
   lat: number,
   lng: number,

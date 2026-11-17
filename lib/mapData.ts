@@ -381,8 +381,8 @@ const oldFloor1: FloorPlan = {
       "Office",
       "OB-1-STUDENT-GOV",
     ),
-    // Rooms drawn on the floor-plan image. Their real boxes come from
-    // imageRoomRect() in CampusMap.tsx; the numbers here are placeholders.
+
+
     room(
       "stock-c",
       "Stock\nRoom",
@@ -579,7 +579,7 @@ const hmFloors: FloorPlan[] = [
   ]),
 ];
 
-// CL 5-8 is the north building (near Gate 2).
+
 const clNorthFloors: FloorPlan[] = [
   auxiliaryFloor(
     1,
@@ -588,7 +588,7 @@ const clNorthFloors: FloorPlan[] = [
   ),
 ];
 
-// CL 1-4 is the south building (near Gate 1).
+
 const clSouthFloors: FloorPlan[] = [
   auxiliaryFloor(
     1,

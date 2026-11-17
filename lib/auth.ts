@@ -28,23 +28,18 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function demoLoginsEnabled(): boolean {
-  return (
-    process.env.NODE_ENV !== "production" ||
-    process.env.ATLAS_DEMO_LOGINS === "1"
-  );
+  return process.env.NODE_ENV !== "production" || process.env.ATLAS_DEMO_LOGINS === "1";
 }
 
-// TEACHER_ACCOUNTS="Dr. Santos:4821;Prof. Reyes:9035"
 function accounts(): Map<string, string> {
-  const map = new Map<string, string>();
-  (process.env.TEACHER_ACCOUNTS ?? "").split(";").forEach((entry) => {
-    const i = entry.indexOf(":");
-    if (i > 0)
-      map.set(
-        entry.slice(0, i).trim().toLowerCase(),
-        entry.slice(i + 1).trim(),
-      );
-  });
+  const map = new Map(
+    (process.env.TEACHER_ACCOUNTS ?? "").split(";").flatMap((entry) => {
+      const i = entry.indexOf(":");
+      return i > 0
+        ? [[entry.slice(0, i).trim().toLowerCase(), entry.slice(i + 1).trim()]]
+        : [];
+    }),
+  );
   if (demoLoginsEnabled()) map.set("demo professor", "1234");
   return map;
 }
@@ -56,8 +51,8 @@ export function verifyLogin(name: string, pin: string): string | null {
   if (!expected || !ok) return null;
   const display = (process.env.TEACHER_ACCOUNTS ?? "")
     .split(";")
-    .map((e) => e.split(":")[0].trim())
-    .find((n) => n.toLowerCase() === key);
+    .map((entry) => entry.split(":")[0].trim())
+    .find((entry) => entry.toLowerCase() === key);
   return display ?? (key === "demo professor" ? "Demo Professor" : name.trim());
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { campusGraph } from "@/lib/graph";
 import { findShortestPath } from "@/lib/pathfinding";
 
@@ -15,7 +15,7 @@ import imgOb2 from "../assets/ob2.png";
 
 type ViewState = "campus" | "NB" | "OB";
 
-const MAP_IMAGES: Record<string, any> = {
+const MAP_IMAGES: Record<string, typeof imgCampus> = {
   campus: imgCampus,
   "NB-1": imgNb1,
   "NB-2": imgNb2,
@@ -32,34 +32,25 @@ export default function NavigationPanel() {
 
   const [startNode, setStartNode] = useState<string | null>(null);
   const [destNode, setDestNode] = useState<string | null>(null);
-  const [pathResult, setPathResult] = useState<ReturnType<
-    typeof findShortestPath
-  > | null>(null);
-
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredBuilding, setHoveredBuilding] = useState<"NB" | "OB" | null>(
     null,
   );
 
-  // --- DEV MODE STATES ---
+
   const [isDevMode, setIsDevMode] = useState(false);
   const [devClickCoords, setDevClickCoords] = useState<{
     x: number;
     y: number;
   } | null>(null);
 
-  useEffect(() => {
-    if (startNode && destNode) {
-      setPathResult(findShortestPath(campusGraph, startNode, destNode));
-    } else {
-      setPathResult(null);
-    }
-  }, [startNode, destNode]);
-
-  useEffect(() => {
-    setHoveredBuilding(null);
-  }, [view]);
+  const pathResult = useMemo(
+    () => (startNode && destNode
+      ? findShortestPath(campusGraph, startNode, destNode)
+      : null),
+    [startNode, destNode],
+  );
 
   const availableFloors = useMemo(() => {
     if (view === "campus") return [];
@@ -95,16 +86,16 @@ export default function NavigationPanel() {
   const ROOM_W = 90;
   const ROOM_H = 40;
 
-  // --- CORE LOGIC FOR CLICKING THE MAP ---
+
   const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isDevMode) {
-      // 1. Get the SVG element
+
       const svg = e.currentTarget;
-      // 2. Create an SVG Point based on the mouse click
+
       const pt = svg.createSVGPoint();
       pt.x = e.clientX;
       pt.y = e.clientY;
-      // 3. Transform screen coordinates to SVG viewBox coordinates (0 to 1080, 0 to 1920)
+
       const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
 
       setDevClickCoords({ x: Math.round(svgP.x), y: Math.round(svgP.y) });
@@ -114,7 +105,7 @@ export default function NavigationPanel() {
   };
 
   const handleNodeClick = (nodeId: string, e: React.MouseEvent) => {
-    if (isDevMode) return; // Disable room clicking in dev mode
+    if (isDevMode) return;
     e.stopPropagation();
     setSelectedNodeId(nodeId);
   };
@@ -143,7 +134,7 @@ export default function NavigationPanel() {
         fontFamily: "sans-serif",
       }}
     >
-      {/* Top Controls */}
+
       <div
         style={{
           display: "flex",
@@ -179,7 +170,7 @@ export default function NavigationPanel() {
         )}
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          {/* DEV MODE BUTTON */}
+
           <button
             onClick={() => {
               setIsDevMode(!isDevMode);
@@ -199,7 +190,7 @@ export default function NavigationPanel() {
         </div>
       </div>
 
-      {/* Map Container */}
+
       <div
         style={{
           position: "relative",
@@ -239,10 +230,10 @@ export default function NavigationPanel() {
             />
           )}
 
-          {/* CLICKABLE BUILDING OVERLAYS */}
+
           {view === "campus" && !isDevMode && (
             <>
-              {/* New Building Area */}
+
               <rect
                 x="828"
                 y="453"
@@ -265,7 +256,7 @@ export default function NavigationPanel() {
                 }}
               />
 
-              {/* Old Building Area */}
+
               <rect
                 x="190"
                 y="735"
@@ -290,7 +281,7 @@ export default function NavigationPanel() {
             </>
           )}
 
-          {/* Nodes & Paths */}
+
           <g style={{ pointerEvents: isDevMode ? "none" : "auto" }}>
             {visibleEdges.map((edge, i) => {
               const a = getNode(edge.from);
@@ -440,10 +431,10 @@ export default function NavigationPanel() {
             })}
           </g>
 
-          {/* DEV MODE CROSSHAIR & COORDINATES */}
+
           {isDevMode && devClickCoords && (
             <g>
-              {/* Crosshair */}
+
               <line
                 x1={devClickCoords.x}
                 y1="0"
@@ -469,7 +460,7 @@ export default function NavigationPanel() {
                 fill="red"
               />
 
-              {/* Tooltip */}
+
               <rect
                 x={devClickCoords.x + 15}
                 y={devClickCoords.y - 25}
@@ -492,7 +483,7 @@ export default function NavigationPanel() {
           )}
         </svg>
 
-        {/* Selected Node Info Panel */}
+
         {selectedNode && !isDevMode && (
           <div
             style={{
@@ -542,7 +533,7 @@ export default function NavigationPanel() {
         )}
       </div>
 
-      {/* Route Details */}
+
       <div
         style={{
           padding: 16,

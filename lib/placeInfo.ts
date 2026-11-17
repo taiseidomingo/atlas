@@ -13,9 +13,9 @@ export interface PlaceInfo {
   floor?: number;
 }
 
-// Photos: drop a file in /public/places named after the node id in lowercase,
-// e.g. public/places/nb-1-registrar.jpg or public/places/gate-1.jpg.
-// Or list exact paths here to use several pictures for one place.
+
+
+
 const PHOTOS: Record<string, string[]> = {};
 
 const DESCRIPTIONS: Record<string, string> = {
