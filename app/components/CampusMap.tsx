@@ -68,9 +68,26 @@ const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
   "cl-s": { x: 132, y: 590 },
 };
 
-const clIndicatorPoints: Record<"cl-n" | "cl-s", Pt> = {
-  "cl-n": { x: 970, y: 190 },
-  "cl-s": { x: 385, y: 190 },
+type ClIndicatorPoint = {
+  mapX: number;
+  mapY: number;
+  displayX: number;
+  displayY: number;
+};
+
+const clIndicatorPoints: Record<"cl-n" | "cl-s", ClIndicatorPoint> = {
+  "cl-s": {
+    mapX: 148.8,
+    mapY: 907.7,
+    displayX: 457.3,
+    displayY: 148.8,
+  },
+  "cl-n": {
+    mapX: 148.2,
+    mapY: 397.7,
+    displayX: 967.3,
+    displayY: 148.2,
+  },
 };
 
 function clExitForNode(id: string): Pt | null {
@@ -414,6 +431,7 @@ export default function CampusMap({
   const [builderCursor, setBuilderCursor] = useState<
     (BuilderCoordinates & { mapKey: string }) | null
   >(null);
+  const appliedFocus = useRef<number | null>(null);
   const timers = useRef<number[]>([]);
 
   const after = useCallback((ms: number, fn: () => void) => {
@@ -608,7 +626,8 @@ export default function CampusMap({
   }, [buildingId, floor, showNodes]);
 
   useEffect(() => {
-    if (!focus) return;
+    if (!focus || appliedFocus.current === focus.nonce) return;
+    appliedFocus.current = focus.nonce;
     const timer = setTimeout(() => {
       if (focus.kind === "campus") {
         clearTimers();
@@ -618,10 +637,6 @@ export default function CampusMap({
         clearTimers();
         setBuildingId(focus.id);
         setFloor(focus.floor ?? 1);
-        if (phase === "building") {
-          setZoomed(false);
-          return;
-        }
         setPhase("in");
         setZoomed(true);
         after(760, () => setPhase("building"));
@@ -1339,7 +1354,7 @@ export default function CampusMap({
                       <g
                         key={`cl-indicator-${id}`}
                         className={styles.clRoomIndicator}
-                        transform={`translate(${point.x} ${point.y})`}
+                        transform={`translate(${point.displayX} ${point.displayY})`}
                         role="button"
                         tabIndex={0}
                         aria-label={
