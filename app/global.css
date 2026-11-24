@@ -20,12 +20,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -188,9 +183,7 @@ main {
   cursor: pointer;
   font: inherit;
   color: inherit;
-  transition:
-    transform 150ms ease,
-    border-color 150ms ease;
+  transition: transform 150ms ease, border-color 150ms ease;
 }
 
 .feature:hover {
@@ -231,7 +224,6 @@ main {
   }
 }
 
-
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -251,4 +243,62 @@ a,
 input,
 select {
   touch-action: manipulation;
+}
+
+/* =====================================================================
+   MOBILE APP ONLY
+   ===================================================================== */
+html[data-ui="mobile"] .header {
+  padding-top: env(safe-area-inset-top);
+}
+html[data-ui="mobile"] .headerInner {
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px
+    max(16px, env(safe-area-inset-left));
+  gap: 12px;
+}
+html[data-ui="mobile"] .nav {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+html[data-ui="mobile"] .nav a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+html[data-ui="mobile"] main {
+  padding: 16px max(16px, env(safe-area-inset-right))
+    calc(96px + env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+html[data-ui="mobile"] .footer {
+  padding: 14px max(16px, env(safe-area-inset-left))
+    calc(14px + env(safe-area-inset-bottom));
+}
+html[data-ui="mobile"] .btn,
+html[data-ui="mobile"] .btnGhost {
+  min-height: 44px;
+}
+html[data-ui="mobile"] .input,
+html[data-ui="mobile"] .select {
+  min-height: 46px;
+  font-size: 16px; /* stops iOS zoom-on-focus */
+}
+html[data-ui="mobile"] .card {
+  padding: 16px;
+  border-radius: 16px;
+}
+html[data-ui="mobile"] .hero {
+  padding: 28px 0 16px;
+}
+html[data-ui="mobile"] .hero p {
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+html[data-ui="mobile"] .grid3 {
+  gap: 12px;
+  margin-top: 18px;
+}
+html[data-ui="mobile"] .pageTitle {
+  font-size: 1.5rem;
 }

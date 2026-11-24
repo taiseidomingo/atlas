@@ -9,6 +9,8 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import styles from "./CampusMap.module.css";
+import ZoomPan from "./ZoomPan";
+import { useMobileUi } from "@/lib/useMobileUi";
 import campusMap01 from "../assets/ATLAS-map-01.png";
 import campusMap02 from "../assets/ATLAS-map-02.png";
 import campusMap03 from "../assets/ATLAS-map-03.png";
@@ -70,18 +72,10 @@ const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
 };
 
 function clExitForNode(id: string): Pt | null {
-  if (
-    id.startsWith("CL-N-") ||
-    id === "OB-1-CL-N-EXIT" ||
-    id === "OB-2-CL-N"
-  ) {
+  if (id.startsWith("CL-N-") || id === "OB-1-CL-N-EXIT" || id === "OB-2-CL-N") {
     return clExitPoints["cl-n"];
   }
-  if (
-    id.startsWith("CL-S-") ||
-    id === "OB-1-CL-S-EXIT" ||
-    id === "OB-2-CL-S"
-  ) {
+  if (id.startsWith("CL-S-") || id === "OB-1-CL-S-EXIT" || id === "OB-2-CL-S") {
     return clExitPoints["cl-s"];
   }
   return null;
@@ -146,19 +140,13 @@ function imageRoomRect(
   }
   if (buildingId === "cl-n" || buildingId === "cl-s") {
     if (roomId === "stairs") {
-      return hotspotRect(
-        buildingId === "cl-n" ? 92.3 : 92.7,
-        46.9,
-        6.6,
-        18.9,
-      );
+      return hotspotRect(buildingId === "cl-n" ? 92.3 : 92.7, 46.9, 6.6, 18.9);
     }
     const start = buildingId === "cl-n" ? 5 : 1;
     const roomNumber = Number(roomId.split("-").pop());
     if (!Number.isInteger(roomNumber)) return null;
     const index = roomNumber - start;
-    const xPercent =
-      (buildingId === "cl-n" ? 3.6 : 4.1) + (3 - index) * 20.9;
+    const xPercent = (buildingId === "cl-n" ? 3.6 : 4.1) + (3 - index) * 20.9;
     return hotspotRect(xPercent, 26.6, 20.0, 38.3);
   }
   if (buildingId === "hm" && floorNumber >= 1 && floorNumber <= 3) {
@@ -299,7 +287,6 @@ function isSelectableNode(id: string): boolean {
   return !!n && (n.kind === "entrance" || n.kind === "gate");
 }
 
-
 export const selectGroups = (() => {
   const groups: { label: string; options: { id: string; name: string }[] }[] =
     [];
@@ -338,7 +325,9 @@ function zoomTransform(id: BuildingId): string {
   );
   const cx = (r.x + r.w / 2) / CAMPUS_VIEWBOX.w;
   const cy = (r.y + r.h / 2) / CAMPUS_VIEWBOX.h;
-  return `translate(${-k * (cx - 0.5) * 100}%, ${-k * (cy - 0.5) * 100}%) scale(${k})`;
+  return `translate(${-k * (cx - 0.5) * 100}%, ${
+    -k * (cy - 0.5) * 100
+  }%) scale(${k})`;
 }
 
 function Pin({
@@ -419,6 +408,7 @@ export default function CampusMap({
   userPos,
   showNodes = false,
 }: CampusMapProps = {}) {
+  const mobileUi = useMobileUi();
   const [phase, setPhase] = useState<Phase>("campus");
   const [zoomed, setZoomed] = useState(false);
   const [buildingId, setBuildingId] = useState<BuildingId>("new");
@@ -590,7 +580,7 @@ export default function CampusMap({
         key,
         label,
         building: b,
-        floor: b ? (n.floor ?? 1) : null,
+        floor: b ? n.floor ?? 1 : null,
       });
     });
     return result;
@@ -599,10 +589,7 @@ export default function CampusMap({
   const campusRoute = useMemo(() => {
     const startBuilding = startId ? buildingOfNode(startId) : null;
     const destinationBuilding = destId ? buildingOfNode(destId) : null;
-    if (
-      startBuilding !== null &&
-      startBuilding === destinationBuilding
-    ) {
+    if (startBuilding !== null && startBuilding === destinationBuilding) {
       return [];
     }
 
@@ -650,8 +637,6 @@ export default function CampusMap({
     if (current.length > 0) lines.push(current);
     return lines;
   }, [routeIds, buildingId, floor]);
-
-
 
   const indoorWalkableEdges = useMemo(() => {
     const alwaysShow = buildingId !== "old" && buildingId !== "new";
@@ -787,8 +772,7 @@ export default function CampusMap({
         return;
       }
     }
-    const name =
-      roomNames[room.nodeId] ?? room.label.replace(/\n/g, " ");
+    const name = roomNames[room.nodeId] ?? room.label.replace(/\n/g, " ");
     setEditingRoomId(room.nodeId);
     setEditingRoomName(name);
     setEditingRoomOriginalName(name);
@@ -829,10 +813,7 @@ export default function CampusMap({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [
-    roomEditingMode,
-    exitRoomEditingMode,
-  ]);
+  }, [roomEditingMode, exitRoomEditingMode]);
 
   const saveRoomNameEdit = async () => {
     if (!editingRoomId) return;
@@ -965,7 +946,8 @@ export default function CampusMap({
             </button>
             {builderMode && (
               <span className={styles.builderHint}>
-                Move the cursor to preview coordinates, then click once per node.
+                Move the cursor to preview coordinates, then click once per
+                node.
               </span>
             )}
             {builderMode && builderCursor && (
@@ -998,421 +980,421 @@ export default function CampusMap({
             {phaseLabel}
           </div>
 
-          <div
-            className={`${styles.campusLayer} ${phase === "out" ? styles.fast : ""}`}
-            style={{
-              transform: zoomed ? zoomTransform(buildingId) : "none",
-              opacity: zoomed ? 0 : 1,
-              pointerEvents: phase === "campus" ? "auto" : "none",
-            }}
+          <ZoomPan
+            enabled={mobileUi}
+            resetKey={`${
+              phase === "campus" ? "c" : "b"
+            }-${buildingId}-${floor}`}
           >
-            <svg
-              viewBox={`0 0 ${CAMPUS_VIEWBOX.w} ${CAMPUS_VIEWBOX.h}`}
-              className={styles.svg}
-              role="img"
-              aria-label="Campus map"
-              onClick={(event) =>
-                addBuilderPoint(event, "campus", {
-                  x: 0,
-                  y: 0,
-                  ...CAMPUS_VIEWBOX,
-                })
-              }
-              onMouseMove={(event) =>
-                updateBuilderCursor(event, "campus", {
-                  x: 0,
-                  y: 0,
-                  ...CAMPUS_VIEWBOX,
-                })
-              }
-              onMouseLeave={() => setBuilderCursor(null)}
-            >
-              <image
-                href={campusMap01.src}
-                x="0"
-                y="0"
-                width={CAMPUS_VIEWBOX.w}
-                height={CAMPUS_VIEWBOX.h}
-                preserveAspectRatio="none"
-                pointerEvents="none"
-              />
-              {outdoorEdges.map((e) => {
-                const a = nodeById.get(e.from);
-                const b = nodeById.get(e.to);
-                if (!a || !b) return null;
-                return (
-                  <line
-                    key={`${e.from}-${e.to}`}
-                    x1={a.x}
-                    y1={a.y}
-                    x2={b.x}
-                    y2={b.y}
-                    className={styles.walkway}
-                  />
-                );
-              })}
-
-              {campusShapes.map((s) => {
-                const kind = pinKind(s.nodeId);
-                const selectable = !!s.nodeId || !!s.buildingId;
-                const cls = [
-                  styles.shape,
-                  styles[`tone_${s.tone}`],
-                  selectable ? styles.hoverable : "",
-                  selectedId && selectedId === s.nodeId
-                    ? styles.isSelected
-                    : "",
-                  kind === "start" ? styles.isStart : "",
-                  kind === "dest" ? styles.isDest : "",
-                ].join(" ");
-                const cx = s.x + s.w / 2;
-                const cy = s.y + s.h / 2;
-                return (
-                  <g
-                    key={s.id}
-                    onClick={() => onShapeClick(s)}
-                    role={selectable ? "button" : undefined}
-                    tabIndex={selectable ? 0 : undefined}
-                    aria-label={selectable ? `${s.label}, select` : undefined}
-                    onKeyDown={(e) => {
-                      if (selectable && (e.key === "Enter" || e.key === " ")) {
-                        e.preventDefault();
-                        onShapeClick(s);
-                      }
-                    }}
-                  >
-                    <rect
-                      x={s.x}
-                      y={s.y}
-                      width={s.w}
-                      height={s.h}
-                      rx={3}
-                      className={campusMap01 ? styles.imageHitbox : cls}
-                    />
-                    <text
-                      x={cx}
-                      y={cy}
-                      className={
-                        campusMap01 ? styles.imageLabelHidden : styles.label
-                      }
-                      fontSize={s.fontSize ?? 11}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      transform={
-                        s.vertical ? `rotate(-90 ${cx} ${cy})` : undefined
-                      }
-                    >
-                      {s.label}
-                    </text>
-                    <title>{s.label}</title>
-                  </g>
-                );
-              })}
-
-              {buildings
-                .filter((b) => b.id === "old" || b.id === "new")
-                .map((b) => {
-                  const cx = b.rect.x + b.rect.w / 2;
-                  const cy = b.rect.y + b.rect.h / 2;
-                  const hitRects =
-                    b.id === "old"
-                      ? [
-                          { x: 2380, y: 2508, w: 3412, h: 736 },
-                          { x: 2868, y: 3244, w: 2432, h: 488 },
-                        ]
-                      : [b.rect];
-                  return (
-                    <g
-                      key={b.id}
-                      onClick={() => {
-                        if (!builderMode && phase === "campus") {
-                          enterBuilding(b.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`${b.name}, open floor plans`}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          if (phase === "campus") enterBuilding(b.id);
-                        }
-                      }}
-                    >
-                      {hitRects.map((rect, index) => (
-                        <rect
-                          key={`${b.id}-hitbox-${index}`}
-                          x={rect.x}
-                          y={rect.y}
-                          width={rect.w}
-                          height={rect.h}
-                          rx={4}
-                          className={styles.imageHitbox}
-                        />
-                      ))}
-                      <text
-                        x={cx}
-                        y={cy - 10}
-                        className={styles.imageLabelHidden}
-                        fontSize={15}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        transform={`rotate(-90 ${cx} ${cy - 10})`}
-                      >
-                        {b.name}
-                      </text>
-                      <text
-                        x={cx}
-                        y={b.rect.y + b.rect.h - 14}
-                        className={styles.imageLabelHidden}
-                        fontSize={8}
-                        textAnchor="middle"
-                      >
-                        Tap to enter
-                      </text>
-                      <title>{`${b.name}: click to see the floor plans`}</title>
-                    </g>
-                  );
-                })}
-
-              {campusRoute.length > 1 && (
-                <polyline
-                  points={campusRoute.map((p) => `${p.x},${p.y}`).join(" ")}
-                  className={styles.route}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )}
-
-              {(["cl-n", "cl-s"] as const).map((id) => {
-                const point = clExitPoints[id];
-                return (
-                  <g
-                    key={id}
-                    className={styles.clExitMarker}
-                    transform={`translate(${point.x} ${point.y})`}
-                    pointerEvents="none"
-                  >
-                    <circle r={9} />
-                    <text y={1.8} textAnchor="middle">
-                      {id === "cl-s" ? "1–4" : "5–8"}
-                    </text>
-                    <title>
-                      {id === "cl-s"
-                        ? "Exit to CL Rooms 1–4"
-                        : "Exit to CL Rooms 5–8"}
-                    </title>
-                  </g>
-                );
-              })}
-
-              {startId &&
-                (() => {
-                  const p = pinPosCampus(startId);
-                  return p ? (
-                    <Pin x={p.x} y={p.y} color="#16a34a" label="A" scale={1} />
-                  ) : null;
-                })()}
-              {destId &&
-                (() => {
-                  const p = pinPosCampus(destId);
-                  return p ? (
-                    <Pin
-                      x={p.x}
-                      y={p.y}
-                      color="#dc2626"
-                      label="B"
-                      scale={1}
-                      pulse
-                    />
-                  ) : null;
-                })()}
-
-              {showNodes &&
-                routingGraph.nodes
-                  .filter((n) => !buildingOfNode(n.id))
-                  .map((n) => (
-                    <circle
-                      key={n.id}
-                      cx={n.x}
-                      cy={n.y}
-                      r={1.4}
-                      fill="#f43f5e"
-                      pointerEvents="none"
-                    />
-                  ))}
-              {userPos && (
-                <g pointerEvents="none">
-                  <circle
-                    cx={userPos.x}
-                    cy={userPos.y}
-                    r={14}
-                    fill="#2563eb"
-                    opacity={0.18}
-                  />
-                  <circle
-                    cx={userPos.x}
-                    cy={userPos.y}
-                    r={6}
-                    fill="#2563eb"
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  />
-                </g>
-              )}
-              {builderMode &&
-                builderPoints
-                  .filter((point) => point.mapKey === "campus")
-                  .map((point) => (
-                    <g key={`builder-${point.id}`} pointerEvents="none">
-                      <circle
-                        cx={point.displayX}
-                        cy={point.displayY}
-                        r={4}
-                        fill="#f97316"
-                        stroke="#ffffff"
-                        strokeWidth={2}
-                      />
-                      <text
-                        x={point.displayX + 7}
-                        y={point.displayY - 7}
-                        className={styles.builderMarkerLabel}
-                      >
-                        {point.id}
-                      </text>
-                    </g>
-                  ))}
-            </svg>
-          </div>
-
-          {(phase === "building" || phase === "out") && (
             <div
-              className={`${styles.indoorLayer} ${phase === "out" ? styles.indoorExit : styles.indoorEnter}`}
+              className={`${styles.campusLayer} ${
+                phase === "out" ? styles.fast : ""
+              }`}
+              style={{
+                transform: zoomed ? zoomTransform(buildingId) : "none",
+                opacity: zoomed ? 0 : 1,
+                pointerEvents: phase === "campus" ? "auto" : "none",
+              }}
             >
               <svg
-                viewBox={
-                  indoorImage
-                    ? `0 0 ${indoorImage.rotate ? indoorImage.height : indoorImage.width} ${indoorImage.rotate ? indoorImage.width : indoorImage.height}`
-                    : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
-                }
+                viewBox={`0 0 ${CAMPUS_VIEWBOX.w} ${CAMPUS_VIEWBOX.h}`}
                 className={styles.svg}
                 role="img"
-                aria-label={`${building.name}, ${plan.name} floor plan`}
+                aria-label="Campus map"
                 onClick={(event) =>
-                  addBuilderPoint(event, activeMapKey, activeViewBox)
+                  addBuilderPoint(event, "campus", {
+                    x: 0,
+                    y: 0,
+                    ...CAMPUS_VIEWBOX,
+                  })
                 }
                 onMouseMove={(event) =>
-                  updateBuilderCursor(event, activeMapKey, activeViewBox)
+                  updateBuilderCursor(event, "campus", {
+                    x: 0,
+                    y: 0,
+                    ...CAMPUS_VIEWBOX,
+                  })
                 }
                 onMouseLeave={() => setBuilderCursor(null)}
               >
-                {indoorImage && (
-                  <image
-                    href={indoorImage.src}
-                    x="0"
-                    y="0"
-                    width={indoorImage.width}
-                    height={indoorImage.height}
-                    transform={
-                      indoorImage.rotate
-                        ? `rotate(90) translate(0 ${-indoorImage.height})`
-                        : undefined
-                    }
-                    preserveAspectRatio="none"
-                    pointerEvents="none"
-                  />
-                )}
-                {plan.open.map((o, i) => {
-                  if (indoorImage) return null;
-                  const r = planRect(o);
+                <image
+                  href={campusMap01.src}
+                  x="0"
+                  y="0"
+                  width={CAMPUS_VIEWBOX.w}
+                  height={CAMPUS_VIEWBOX.h}
+                  preserveAspectRatio="none"
+                  pointerEvents="none"
+                />
+                {outdoorEdges.map((e) => {
+                  const a = nodeById.get(e.from);
+                  const b = nodeById.get(e.to);
+                  if (!a || !b) return null;
                   return (
-                    <rect
-                      key={i}
-                      x={r.x}
-                      y={r.y}
-                      width={r.w}
-                      height={r.h}
-                      rx={14}
-                      className={styles.openArea}
+                    <line
+                      key={`${e.from}-${e.to}`}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      className={styles.walkway}
                     />
                   );
                 })}
 
-                {plan.rooms.map((room: PlanRoom) => {
-                  const r = indoorImage
-                    ? buildingId === "old"
-                      ? scaleOldRect(room)
-                      : imageRoomRect(buildingId, floor, room.id)
-                    : planRect(room);
-                  if (!r) return null;
-                  const displayRoomName =
-                    room.nodeId && roomNames[room.nodeId]
-                      ? roomNames[room.nodeId]
-                      : room.label;
-                  const lines = displayRoomName
-                    ? displayRoomName.split("\n")
-                    : [];
-                  const longest = Math.max(1, ...lines.map((l) => l.length));
-                  const fs = Math.max(
-                    18,
-                    Math.min(
-                      46,
-                      (r.w * 0.88) / (0.6 * longest),
-                      (r.h * 0.7) / Math.max(1, lines.length),
-                    ),
-                  );
-                  const selectable =
-                    !!room.nodeId &&
-                    (isSelectableNode(room.nodeId) || !!room.openBuildingId);
-                  const kind = pinKind(room.nodeId);
+                {campusShapes.map((s) => {
+                  const kind = pinKind(s.nodeId);
+                  const selectable = !!s.nodeId || !!s.buildingId;
                   const cls = [
-                    indoorImage ? styles.imageHitbox : styles.room,
-                    room.placeholder ? styles.placeholder : "",
+                    styles.shape,
+                    styles[`tone_${s.tone}`],
                     selectable ? styles.hoverable : "",
-                    room.nodeId && nodeById.get(room.nodeId)?.claimable
-                      ? claims[room.nodeId]
-                        ? styles.roomOccupied
-                        : styles.roomAvailable
-                      : "",
-                    selectedId && selectedId === room.nodeId
+                    selectedId && selectedId === s.nodeId
                       ? styles.isSelected
                       : "",
                     kind === "start" ? styles.isStart : "",
                     kind === "dest" ? styles.isDest : "",
                   ].join(" ");
-                  const cx = r.x + r.w / 2;
-                  const cy = r.y + r.h / 2;
+                  const cx = s.x + s.w / 2;
+                  const cy = s.y + s.h / 2;
                   return (
                     <g
-                      key={room.id}
-                      onClick={() => {
-                        if (builderMode) return;
-                        if (isAdmin && roomEditingMode && room.nodeId) {
-                          beginRoomNameEdit(room);
-                          return;
-                        }
-                        if (room.openBuildingId) {
-                          enterBuilding(
-                            room.openBuildingId,
-                            room.openFloor ?? 1,
-                          );
-                        } else if (room.nodeId) {
-                          selectNode(room.nodeId);
-                        }
-                      }}
+                      key={s.id}
+                      onClick={() => onShapeClick(s)}
                       role={selectable ? "button" : undefined}
                       tabIndex={selectable ? 0 : undefined}
-                      aria-label={
-                        selectable
-                          ? `${displayRoomName.replace("\n", " ")}, select`
-                          : undefined
-                      }
+                      aria-label={selectable ? `${s.label}, select` : undefined}
                       onKeyDown={(e) => {
                         if (
                           selectable &&
-                          room.nodeId &&
                           (e.key === "Enter" || e.key === " ")
                         ) {
                           e.preventDefault();
+                          onShapeClick(s);
+                        }
+                      }}
+                    >
+                      <rect
+                        x={s.x}
+                        y={s.y}
+                        width={s.w}
+                        height={s.h}
+                        rx={3}
+                        className={campusMap01 ? styles.imageHitbox : cls}
+                      />
+                      <text
+                        x={cx}
+                        y={cy}
+                        className={
+                          campusMap01 ? styles.imageLabelHidden : styles.label
+                        }
+                        fontSize={s.fontSize ?? 11}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        transform={
+                          s.vertical ? `rotate(-90 ${cx} ${cy})` : undefined
+                        }
+                      >
+                        {s.label}
+                      </text>
+                      <title>{s.label}</title>
+                    </g>
+                  );
+                })}
+
+                {buildings
+                  .filter((b) => b.id === "old" || b.id === "new")
+                  .map((b) => {
+                    const cx = b.rect.x + b.rect.w / 2;
+                    const cy = b.rect.y + b.rect.h / 2;
+                    const hitRects =
+                      b.id === "old"
+                        ? [
+                            { x: 2380, y: 2508, w: 3412, h: 736 },
+                            { x: 2868, y: 3244, w: 2432, h: 488 },
+                          ]
+                        : [b.rect];
+                    return (
+                      <g
+                        key={b.id}
+                        onClick={() => {
+                          if (!builderMode && phase === "campus") {
+                            enterBuilding(b.id);
+                          }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${b.name}, open floor plans`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (phase === "campus") enterBuilding(b.id);
+                          }
+                        }}
+                      >
+                        {hitRects.map((rect, index) => (
+                          <rect
+                            key={`${b.id}-hitbox-${index}`}
+                            x={rect.x}
+                            y={rect.y}
+                            width={rect.w}
+                            height={rect.h}
+                            rx={4}
+                            className={styles.imageHitbox}
+                          />
+                        ))}
+                        <text
+                          x={cx}
+                          y={cy - 10}
+                          className={styles.imageLabelHidden}
+                          fontSize={15}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          transform={`rotate(-90 ${cx} ${cy - 10})`}
+                        >
+                          {b.name}
+                        </text>
+                        <text
+                          x={cx}
+                          y={b.rect.y + b.rect.h - 14}
+                          className={styles.imageLabelHidden}
+                          fontSize={8}
+                          textAnchor="middle"
+                        >
+                          Tap to enter
+                        </text>
+                        <title>{`${b.name}: click to see the floor plans`}</title>
+                      </g>
+                    );
+                  })}
+
+                {campusRoute.length > 1 && (
+                  <polyline
+                    points={campusRoute.map((p) => `${p.x},${p.y}`).join(" ")}
+                    className={styles.route}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                )}
+
+                {(["cl-n", "cl-s"] as const).map((id) => {
+                  const point = clExitPoints[id];
+                  return (
+                    <g
+                      key={id}
+                      className={styles.clExitMarker}
+                      transform={`translate(${point.x} ${point.y})`}
+                      pointerEvents="none"
+                    >
+                      <circle r={9} />
+                      <text y={1.8} textAnchor="middle">
+                        {id === "cl-s" ? "1–4" : "5–8"}
+                      </text>
+                      <title>
+                        {id === "cl-s"
+                          ? "Exit to CL Rooms 1–4"
+                          : "Exit to CL Rooms 5–8"}
+                      </title>
+                    </g>
+                  );
+                })}
+
+                {startId &&
+                  (() => {
+                    const p = pinPosCampus(startId);
+                    return p ? (
+                      <Pin
+                        x={p.x}
+                        y={p.y}
+                        color="#16a34a"
+                        label="A"
+                        scale={mobileUi ? 14 : 1}
+                      />
+                    ) : null;
+                  })()}
+                {destId &&
+                  (() => {
+                    const p = pinPosCampus(destId);
+                    return p ? (
+                      <Pin
+                        x={p.x}
+                        y={p.y}
+                        color="#dc2626"
+                        label="B"
+                        scale={mobileUi ? 14 : 1}
+                        pulse
+                      />
+                    ) : null;
+                  })()}
+
+                {showNodes &&
+                  routingGraph.nodes
+                    .filter((n) => !buildingOfNode(n.id))
+                    .map((n) => (
+                      <circle
+                        key={n.id}
+                        cx={n.x}
+                        cy={n.y}
+                        r={1.4}
+                        fill="#f43f5e"
+                        pointerEvents="none"
+                      />
+                    ))}
+                {userPos && (
+                  <g pointerEvents="none">
+                    <circle
+                      cx={userPos.x}
+                      cy={userPos.y}
+                      r={14}
+                      fill="#2563eb"
+                      opacity={0.18}
+                    />
+                    <circle
+                      cx={userPos.x}
+                      cy={userPos.y}
+                      r={6}
+                      fill="#2563eb"
+                      stroke="#ffffff"
+                      strokeWidth={2}
+                    />
+                  </g>
+                )}
+                {builderMode &&
+                  builderPoints
+                    .filter((point) => point.mapKey === "campus")
+                    .map((point) => (
+                      <g key={`builder-${point.id}`} pointerEvents="none">
+                        <circle
+                          cx={point.displayX}
+                          cy={point.displayY}
+                          r={4}
+                          fill="#f97316"
+                          stroke="#ffffff"
+                          strokeWidth={2}
+                        />
+                        <text
+                          x={point.displayX + 7}
+                          y={point.displayY - 7}
+                          className={styles.builderMarkerLabel}
+                        >
+                          {point.id}
+                        </text>
+                      </g>
+                    ))}
+              </svg>
+            </div>
+
+            {(phase === "building" || phase === "out") && (
+              <div
+                className={`${styles.indoorLayer} ${
+                  phase === "out" ? styles.indoorExit : styles.indoorEnter
+                }`}
+              >
+                <svg
+                  viewBox={
+                    indoorImage
+                      ? `0 0 ${
+                          indoorImage.rotate
+                            ? indoorImage.height
+                            : indoorImage.width
+                        } ${
+                          indoorImage.rotate
+                            ? indoorImage.width
+                            : indoorImage.height
+                        }`
+                      : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
+                  }
+                  className={styles.svg}
+                  role="img"
+                  aria-label={`${building.name}, ${plan.name} floor plan`}
+                  onClick={(event) =>
+                    addBuilderPoint(event, activeMapKey, activeViewBox)
+                  }
+                  onMouseMove={(event) =>
+                    updateBuilderCursor(event, activeMapKey, activeViewBox)
+                  }
+                  onMouseLeave={() => setBuilderCursor(null)}
+                >
+                  {indoorImage && (
+                    <image
+                      href={indoorImage.src}
+                      x="0"
+                      y="0"
+                      width={indoorImage.width}
+                      height={indoorImage.height}
+                      transform={
+                        indoorImage.rotate
+                          ? `rotate(90) translate(0 ${-indoorImage.height})`
+                          : undefined
+                      }
+                      preserveAspectRatio="none"
+                      pointerEvents="none"
+                    />
+                  )}
+                  {plan.open.map((o, i) => {
+                    if (indoorImage) return null;
+                    const r = planRect(o);
+                    return (
+                      <rect
+                        key={i}
+                        x={r.x}
+                        y={r.y}
+                        width={r.w}
+                        height={r.h}
+                        rx={14}
+                        className={styles.openArea}
+                      />
+                    );
+                  })}
+
+                  {plan.rooms.map((room: PlanRoom) => {
+                    const r = indoorImage
+                      ? buildingId === "old"
+                        ? scaleOldRect(room)
+                        : imageRoomRect(buildingId, floor, room.id)
+                      : planRect(room);
+                    if (!r) return null;
+                    const displayRoomName =
+                      room.nodeId && roomNames[room.nodeId]
+                        ? roomNames[room.nodeId]
+                        : room.label;
+                    const lines = displayRoomName
+                      ? displayRoomName.split("\n")
+                      : [];
+                    const longest = Math.max(1, ...lines.map((l) => l.length));
+                    const fs = Math.max(
+                      18,
+                      Math.min(
+                        46,
+                        (r.w * 0.88) / (0.6 * longest),
+                        (r.h * 0.7) / Math.max(1, lines.length),
+                      ),
+                    );
+                    const selectable =
+                      !!room.nodeId &&
+                      (isSelectableNode(room.nodeId) || !!room.openBuildingId);
+                    const kind = pinKind(room.nodeId);
+                    const cls = [
+                      indoorImage ? styles.imageHitbox : styles.room,
+                      room.placeholder ? styles.placeholder : "",
+                      selectable ? styles.hoverable : "",
+                      room.nodeId && nodeById.get(room.nodeId)?.claimable
+                        ? claims[room.nodeId]
+                          ? styles.roomOccupied
+                          : styles.roomAvailable
+                        : "",
+                      selectedId && selectedId === room.nodeId
+                        ? styles.isSelected
+                        : "",
+                      kind === "start" ? styles.isStart : "",
+                      kind === "dest" ? styles.isDest : "",
+                    ].join(" ");
+                    const cx = r.x + r.w / 2;
+                    const cy = r.y + r.h / 2;
+                    return (
+                      <g
+                        key={room.id}
+                        onClick={() => {
+                          if (builderMode) return;
                           if (isAdmin && roomEditingMode && room.nodeId) {
                             beginRoomNameEdit(room);
                             return;
@@ -1422,235 +1404,267 @@ export default function CampusMap({
                               room.openBuildingId,
                               room.openFloor ?? 1,
                             );
-                          } else {
+                          } else if (room.nodeId) {
                             selectNode(room.nodeId);
                           }
+                        }}
+                        role={selectable ? "button" : undefined}
+                        tabIndex={selectable ? 0 : undefined}
+                        aria-label={
+                          selectable
+                            ? `${displayRoomName.replace("\n", " ")}, select`
+                            : undefined
                         }
-                      }}
-                    >
-                      <rect
-                        x={r.x}
-                        y={r.y}
-                        width={r.w}
-                        height={r.h}
-                        rx={6}
-                        className={cls}
-                      />
-                      {isAdmin &&
-                        editingRoomId === room.nodeId &&
-                        room.nodeId && (
-                          <foreignObject
-                            x={r.x + r.w * 0.08}
-                            y={r.y + r.h * 0.28}
-                            width={r.w * 0.84}
-                            height={Math.max(64, r.h * 0.44)}
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: 4,
-                                padding: 6,
-                                borderRadius: 8,
-                                background: "rgba(255,255,255,0.96)",
-                                boxShadow: "0 4px 16px rgba(15,23,42,0.25)",
-                              }}
+                        onKeyDown={(e) => {
+                          if (
+                            selectable &&
+                            room.nodeId &&
+                            (e.key === "Enter" || e.key === " ")
+                          ) {
+                            e.preventDefault();
+                            if (isAdmin && roomEditingMode && room.nodeId) {
+                              beginRoomNameEdit(room);
+                              return;
+                            }
+                            if (room.openBuildingId) {
+                              enterBuilding(
+                                room.openBuildingId,
+                                room.openFloor ?? 1,
+                              );
+                            } else {
+                              selectNode(room.nodeId);
+                            }
+                          }
+                        }}
+                      >
+                        <rect
+                          x={r.x}
+                          y={r.y}
+                          width={r.w}
+                          height={r.h}
+                          rx={6}
+                          className={cls}
+                        />
+                        {isAdmin &&
+                          editingRoomId === room.nodeId &&
+                          room.nodeId && (
+                            <foreignObject
+                              x={r.x + r.w * 0.08}
+                              y={r.y + r.h * 0.28}
+                              width={r.w * 0.84}
+                              height={Math.max(64, r.h * 0.44)}
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              <input
-                                value={editingRoomName}
-                                onChange={(event) =>
-                                  setEditingRoomName(event.target.value)
-                                }
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") saveRoomNameEdit();
-                                  if (event.key === "Escape") cancelRoomNameEdit();
-                                }}
-                                autoFocus
+                              <div
                                 style={{
-                                  width: "100%",
-                                  border: "1px solid #cbd5e1",
-                                  borderRadius: 6,
-                                  padding: "6px 8px",
-                                  fontSize: 14,
+                                  display: "grid",
+                                  gap: 4,
+                                  padding: 6,
+                                  borderRadius: 8,
+                                  background: "rgba(255,255,255,0.96)",
+                                  boxShadow: "0 4px 16px rgba(15,23,42,0.25)",
                                 }}
-                                aria-label="Room name"
-                              />
-                              <div style={{ display: "flex", gap: 4 }}>
-                                <button
-                                  type="button"
-                                  onClick={saveRoomNameEdit}
-                                  style={{
-                                    flex: 1,
-                                    border: 0,
-                                    borderRadius: 6,
-                                    background: "#2433c4",
-                                    color: "#fff",
-                                    padding: "5px",
-                                    cursor: "pointer",
+                              >
+                                <input
+                                  value={editingRoomName}
+                                  onChange={(event) =>
+                                    setEditingRoomName(event.target.value)
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter")
+                                      saveRoomNameEdit();
+                                    if (event.key === "Escape")
+                                      cancelRoomNameEdit();
                                   }}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelRoomNameEdit}
+                                  autoFocus
                                   style={{
-                                    flex: 1,
+                                    width: "100%",
                                     border: "1px solid #cbd5e1",
                                     borderRadius: 6,
-                                    background: "#fff",
-                                    color: "#334155",
-                                    padding: "5px",
-                                    cursor: "pointer",
+                                    padding: "6px 8px",
+                                    fontSize: 14,
                                   }}
-                                >
-                                  Cancel
-                                </button>
+                                  aria-label="Room name"
+                                />
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <button
+                                    type="button"
+                                    onClick={saveRoomNameEdit}
+                                    style={{
+                                      flex: 1,
+                                      border: 0,
+                                      borderRadius: 6,
+                                      background: "#2433c4",
+                                      color: "#fff",
+                                      padding: "5px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelRoomNameEdit}
+                                    style={{
+                                      flex: 1,
+                                      border: "1px solid #cbd5e1",
+                                      borderRadius: 6,
+                                      background: "#fff",
+                                      color: "#334155",
+                                      padding: "5px",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {roomNameError && (
+                                  <span
+                                    style={{ color: "#dc2626", fontSize: 11 }}
+                                  >
+                                    {roomNameError}
+                                  </span>
+                                )}
                               </div>
-                              {roomNameError && (
-                                <span
-                                  style={{ color: "#dc2626", fontSize: 11 }}
-                                >
-                                  {roomNameError}
-                                </span>
-                              )}
-                            </div>
-                          </foreignObject>
-                        )}
-                      {lines.map((line, i) => (
-                        <text
-                          key={i}
-                          x={cx}
-                          y={cy + (i - (lines.length - 1) / 2) * fs * 1.2}
-                          fontSize={fs}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          className={
-                            indoorImage
-                              ? roomNames[room.nodeId ?? ""]
-                                ? styles.roomNameOverlay
-                                : styles.imageLabelHidden
-                              : room.placeholder
+                            </foreignObject>
+                          )}
+                        {lines.map((line, i) => (
+                          <text
+                            key={i}
+                            x={cx}
+                            y={cy + (i - (lines.length - 1) / 2) * fs * 1.2}
+                            fontSize={fs}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className={
+                              indoorImage
+                                ? roomNames[room.nodeId ?? ""]
+                                  ? styles.roomNameOverlay
+                                  : styles.imageLabelHidden
+                                : room.placeholder
                                 ? styles.labelMuted
                                 : styles.label
-                          }
-                        >
-                          {line}
-                        </text>
-                      ))}
-                      {displayRoomName && (
-                        <title>
-                          {displayRoomName.replace("\n", " ")}
-                          {room.nodeId && nodeById.get(room.nodeId)?.claimable
-                            ? ` - ${claims[room.nodeId] ? "Occupied" : "Available"}`
-                            : ""}
-                        </title>
-                      )}
-                    </g>
-                  );
-                })}
-
-                {indoorWalkableEdges.map((edge) => (
-                  <line
-                    key={`walkable-edge-${edge.key}`}
-                    x1={edge.fromPoint.x}
-                    y1={edge.fromPoint.y}
-                    x2={edge.toPoint.x}
-                    y2={edge.toPoint.y}
-                    className={styles.nodeConnection}
-                    strokeWidth={6}
-                  />
-                ))}
-
-                {showNodes &&
-                  routingGraph.nodes
-                    .filter(
-                      (n) =>
-                        buildingOfNode(n.id) === buildingId &&
-                        n.floor === floor,
-                    )
-                    .map((n) => {
-                      const p = nodePoint(buildingId, n.x, n.y);
-                      return (
-                        <circle
-                          key={`node-${n.id}`}
-                          cx={p.x}
-                          cy={p.y}
-                          r={8}
-                          fill="#f43f5e"
-                          stroke="#ffffff"
-                          strokeWidth={2}
-                          pointerEvents="none"
-                        />
-                      );
-                    })}
-
-                {indoorRoute.map((line, i) =>
-                  line.length > 1 ? (
-                    <polyline
-                      key={i}
-                      points={line.map((p) => `${p.x},${p.y}`).join(" ")}
-                      className={styles.route}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  ) : null,
-                )}
-
-                {builderMode &&
-                  builderPoints
-                    .filter((point) => point.mapKey === activeMapKey)
-                    .map((point) => (
-                      <g key={`builder-${point.id}`} pointerEvents="none">
-                        <circle
-                          cx={point.displayX}
-                          cy={point.displayY}
-                          r={10}
-                          fill="#f97316"
-                          stroke="#ffffff"
-                          strokeWidth={3}
-                        />
-                        <text
-                          x={point.displayX}
-                          y={point.displayY}
-                          textAnchor="middle"
-                          dominantBaseline="central"
-                          className={styles.builderMarkerLabel}
-                        >
-                          {point.id}
-                        </text>
+                            }
+                          >
+                            {line}
+                          </text>
+                        ))}
+                        {displayRoomName && (
+                          <title>
+                            {displayRoomName.replace("\n", " ")}
+                            {room.nodeId && nodeById.get(room.nodeId)?.claimable
+                              ? ` - ${
+                                  claims[room.nodeId] ? "Occupied" : "Available"
+                                }`
+                              : ""}
+                          </title>
+                        )}
                       </g>
-                    ))}
+                    );
+                  })}
 
-                {[
-                  { id: startId, color: "#16a34a", label: "A", pulse: false },
-                  { id: destId, color: "#dc2626", label: "B", pulse: true },
-                ].map((pin) => {
-                  if (!pin.id) return null;
-                  const n = nodeById.get(pin.id);
-                  if (
-                    !n ||
-                    buildingOfNode(pin.id) !== buildingId ||
-                    n.floor !== floor
-                  )
-                    return null;
-                  const p = nodePoint(buildingId, n.x, n.y);
-                  return (
-                    <Pin
-                      key={pin.label}
-                      x={p.x}
-                      y={p.y}
-                      color={pin.color}
-                      label={pin.label}
-                      scale={4.2}
-                      pulse={pin.pulse}
+                  {indoorWalkableEdges.map((edge) => (
+                    <line
+                      key={`walkable-edge-${edge.key}`}
+                      x1={edge.fromPoint.x}
+                      y1={edge.fromPoint.y}
+                      x2={edge.toPoint.x}
+                      y2={edge.toPoint.y}
+                      className={styles.nodeConnection}
+                      strokeWidth={6}
                     />
-                  );
-                })}
-              </svg>
+                  ))}
 
-              {plan.note && <div className={styles.note}>{plan.note}</div>}
-            </div>
-          )}
+                  {showNodes &&
+                    routingGraph.nodes
+                      .filter(
+                        (n) =>
+                          buildingOfNode(n.id) === buildingId &&
+                          n.floor === floor,
+                      )
+                      .map((n) => {
+                        const p = nodePoint(buildingId, n.x, n.y);
+                        return (
+                          <circle
+                            key={`node-${n.id}`}
+                            cx={p.x}
+                            cy={p.y}
+                            r={8}
+                            fill="#f43f5e"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            pointerEvents="none"
+                          />
+                        );
+                      })}
+
+                  {indoorRoute.map((line, i) =>
+                    line.length > 1 ? (
+                      <polyline
+                        key={i}
+                        points={line.map((p) => `${p.x},${p.y}`).join(" ")}
+                        className={styles.route}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ) : null,
+                  )}
+
+                  {builderMode &&
+                    builderPoints
+                      .filter((point) => point.mapKey === activeMapKey)
+                      .map((point) => (
+                        <g key={`builder-${point.id}`} pointerEvents="none">
+                          <circle
+                            cx={point.displayX}
+                            cy={point.displayY}
+                            r={10}
+                            fill="#f97316"
+                            stroke="#ffffff"
+                            strokeWidth={3}
+                          />
+                          <text
+                            x={point.displayX}
+                            y={point.displayY}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className={styles.builderMarkerLabel}
+                          >
+                            {point.id}
+                          </text>
+                        </g>
+                      ))}
+
+                  {[
+                    { id: startId, color: "#16a34a", label: "A", pulse: false },
+                    { id: destId, color: "#dc2626", label: "B", pulse: true },
+                  ].map((pin) => {
+                    if (!pin.id) return null;
+                    const n = nodeById.get(pin.id);
+                    if (
+                      !n ||
+                      buildingOfNode(pin.id) !== buildingId ||
+                      n.floor !== floor
+                    )
+                      return null;
+                    const p = nodePoint(buildingId, n.x, n.y);
+                    return (
+                      <Pin
+                        key={pin.label}
+                        x={p.x}
+                        y={p.y}
+                        color={pin.color}
+                        label={pin.label}
+                        scale={4.2}
+                        pulse={pin.pulse}
+                      />
+                    );
+                  })}
+                </svg>
+
+                {plan.note && <div className={styles.note}>{plan.note}</div>}
+              </div>
+            )}
+          </ZoomPan>
 
           {phase === "building" && (
             <>
@@ -1662,7 +1676,9 @@ export default function CampusMap({
                   backToCampus();
                 }}
               >
-                <span aria-hidden="true">&larr;</span> Back to Campus Overview
+                <span aria-hidden="true">&larr;</span>{" "}
+                <span className={styles.backLong}>Back to Campus Overview</span>
+                <span className={styles.backShort}>Campus</span>
               </button>
               {isAdmin && (
                 <button
@@ -1702,7 +1718,9 @@ export default function CampusMap({
                     <button
                       key={f.floor}
                       type="button"
-                      className={`${styles.floorBtn} ${buildingId === "old" ? styles.floorBtnWide : ""} ${f.floor === floor ? styles.floorActive : ""}`}
+                      className={`${styles.floorBtn} ${
+                        buildingId === "old" ? styles.floorBtnWide : ""
+                      } ${f.floor === floor ? styles.floorActive : ""}`}
                       aria-pressed={f.floor === floor}
                       aria-label={f.name}
                       title={f.name}
@@ -1724,10 +1742,10 @@ export default function CampusMap({
                         ? f.floor === 1
                           ? "1F"
                           : f.floor === 2
-                            ? "2.1F"
-                            : f.floor === 3
-                              ? "2.2F"
-                              : `${f.floor}F`
+                          ? "2.1F"
+                          : f.floor === 3
+                          ? "2.2F"
+                          : `${f.floor}F`
                         : `${f.floor}F`}
                     </button>
                   ))}
