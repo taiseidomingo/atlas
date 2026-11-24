@@ -16,13 +16,18 @@ export const viewport: Viewport = {
   themeColor: "#2433c4",
 };
 
+const platformScript = `(function(){var d=document.documentElement;function f(){var C=window.Capacitor;var n=!!(C&&C.isNativePlatform&&C.isNativePlatform());var t=window.matchMedia&&matchMedia("(pointer: coarse)").matches;var s=Math.min(innerWidth,innerHeight)<=820;d.dataset.ui=(n||(t&&s))?"mobile":"web";if(n)d.dataset.app="native";}f();addEventListener("resize",f);})();`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: platformScript }} />
+      </head>
       <body>
         <header className="header">
           <div className="headerInner">

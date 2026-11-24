@@ -83,3 +83,32 @@
   padding: 12px;
   border-top: 1px solid var(--line);
 }
+
+/* ---- mobile app only ---- */
+:global(html[data-ui="mobile"]) .fab {
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  min-height: 48px;
+}
+:global(html[data-ui="mobile"]) .panel {
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  border: 0;
+}
+:global(html[data-ui="mobile"]) .head {
+  padding-top: calc(14px + env(safe-area-inset-top));
+}
+:global(html[data-ui="mobile"]) .close {
+  width: 44px;
+  height: 44px;
+  font-size: 1.4rem;
+}
+:global(html[data-ui="mobile"]) .form {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+:global(html[data-ui="mobile"]) .msg {
+  font-size: 1rem;
+}

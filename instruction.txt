@@ -1,0 +1,313 @@
+
+# Atlas – Complete Android Development Setup & Workflow
+
+## 1. Required Software
+
+Install the following tools:
+
+| Software | Purpose | Download |
+|---|---|---|
+| Node.js (LTS) | Runs Next.js and npm | https://nodejs.org/ |
+| Git for Windows | Git Bash and Git commands | https://git-scm.com/downloads/win |
+| Android Studio | Android SDK and APK building | https://developer.android.com/studio |
+| Java JDK | Android Gradle builds | https://adoptium.net/ |
+
+Recommended: Use the JDK version required by your project's Gradle and Android Gradle Plugin configuration. Android Studio's bundled JBR can also be used.
+
+## 2. Install Android Studio Components
+
+Open Android Studio:
+
+1. Open Settings > Languages & Frameworks > Android SDK.
+2. Install the Android SDK Platform required by your project.
+3. Install Android SDK Platform-Tools.
+4. Install Android SDK Build-Tools.
+5. Install Android SDK Command-line Tools (latest).
+6. Install Android Emulator if you want to test using a virtual device.
+
+Make sure the Android SDK location is configured correctly.
+
+Default Windows location:
+
+```text
+%LOCALAPPDATA%\Android\Sdk
+```
+
+## 3. Configure Environment Variables
+
+Add these Windows environment variables:
+
+```text
+ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk
+ANDROID_SDK_ROOT=%LOCALAPPDATA%\Android\Sdk
+```
+
+Add these entries to your Windows PATH:
+
+```text
+%LOCALAPPDATA%\Android\Sdk\platform-tools
+%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin
+%LOCALAPPDATA%\Android\Sdk\emulator
+```
+
+For Git Bash, add ADB to PATH:
+
+```bash
+echo 'export PATH="$PATH:$LOCALAPPDATA/Android/Sdk/platform-tools"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Verify installations:
+
+```bash
+node -v
+npm -v
+git --version
+adb version
+java -version
+```
+
+## 4. Prepare Android Phone
+
+1. Open Settings on your Android phone.
+2. Enable Developer Options.
+3. Enable USB Debugging.
+4. Connect your phone using a USB data cable.
+5. Accept the USB debugging authorization prompt.
+
+Verify connection:
+
+```bash
+adb devices
+```
+
+The device should display:
+
+```text
+List of devices attached
+YOUR_DEVICE_ID    device
+```
+
+If ADB is not recognized:
+
+```bash
+"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" devices
+```
+
+## 5. Install Project Dependencies
+
+Open Git Bash in the Atlas project directory:
+
+```bash
+cd "/c/Projects/Python Projects/atlas/atlas"
+```
+
+Install Node.js dependencies:
+
+```bash
+npm install
+```
+
+Install Capacitor packages if they are not already included in package.json:
+
+```bash
+npm install @capacitor/core @capacitor/cli @capacitor/android
+```
+
+Install the existing Capacitor plugins:
+
+```bash
+npm install @capacitor/splash-screen @capacitor/status-bar
+```
+
+Do not reinstall packages unnecessarily if they are already correctly declared in package.json.
+
+## 6. Initialize and Configure Capacitor
+
+If Capacitor has not been initialized:
+
+```bash
+npx cap init
+```
+
+If the Android platform has not been added:
+
+```bash
+npx cap add android
+```
+
+For an existing Atlas project, these steps should already be completed.
+
+Verify:
+
+```bash
+npx cap doctor
+```
+
+## 7. Start the Development Server
+
+```bash
+npm run dev
+```
+
+Keep the development server running on port 3000.
+
+## 8. Connect Android to Development Server
+
+Add ADB to PATH:
+
+```bash
+export PATH="$PATH:$LOCALAPPDATA/Android/Sdk/platform-tools"
+```
+
+Verify your phone:
+
+```bash
+adb devices
+```
+
+Enable reverse port forwarding:
+
+```bash
+adb reverse tcp:3000 tcp:3000
+```
+
+## 9. Synchronize Capacitor
+
+```bash
+npm run cap:sync
+```
+
+This synchronizes web assets, Android configuration, and Capacitor plugins.
+
+## 10. Open Android Studio
+
+```bash
+npm run android:open
+```
+
+Wait for Gradle synchronization and allow Android Studio to finish downloading any required components.
+
+## 11. Build Android Debug APK
+
+From the project root:
+
+```bash
+cd android
+./gradlew.bat assembleDebug
+cd ..
+```
+
+Expected APK location:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## 12. Install Atlas on Your Phone
+
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+The app should now be installed on your Android device.
+
+## 13. Future Development Workflow
+
+For subsequent testing:
+
+```bash
+# Start Next.js
+npm run dev
+
+# Verify Android device
+adb devices
+
+# Connect phone to development server
+adb reverse tcp:3000 tcp:3000
+
+# Synchronize Capacitor
+npm run cap:sync
+
+# Build APK
+cd android
+./gradlew.bat assembleDebug
+cd ..
+
+# Install/update app
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+## 14. Troubleshooting
+
+### ADB command not found
+
+```bash
+export PATH="$PATH:$LOCALAPPDATA/Android/Sdk/platform-tools"
+```
+
+### Device unauthorized
+
+Unlock your phone and accept the USB debugging prompt.
+
+### No devices detected
+
+```bash
+adb kill-server
+adb start-server
+adb devices
+```
+
+Check your USB cable, USB debugging settings, and Windows device drivers.
+
+### Gradle build fails
+
+```bash
+cd android
+./gradlew.bat --version
+./gradlew.bat assembleDebug
+cd ..
+```
+
+Check Java compatibility, Android SDK installation, and Gradle configuration.
+
+### APK not found
+
+Confirm that the Gradle build completed successfully:
+
+```bash
+ls android/app/build/outputs/apk/debug/
+```
+
+### App cannot connect to localhost
+
+```bash
+adb reverse tcp:3000 tcp:3000
+```
+
+Make sure the Next.js development server is running.
+
+## 15. Important Project Notes
+
+- Project: Atlas
+- Framework: Next.js
+- Mobile runtime: Capacitor
+- Platform: Android
+- Development port: 3000
+- Android directory: android/
+- Capacitor config: capacitor.config.ts
+- Map component: app/components/CampusMap.tsx
+- Navigation component: app/components/NavigationView.tsx
+- Global styling: app/global.css
+- Git branch: feat/capacitor-android
+
+## 16. Development Guidelines
+
+- Preserve the existing web interface when improving mobile UI/UX.
+- Optimize mobile layouts independently from desktop layouts.
+- Test map zooming, panning, markers, and navigation on a physical device.
+- Respect Android safe areas, status bars, and system navigation.
+- Avoid breaking existing Next.js functionality, APIs, and Capacitor integrations.
+- Keep dependencies and Gradle configurations compatible.
+
+chat nyo ko after para ma bigay ko yung .env :))
