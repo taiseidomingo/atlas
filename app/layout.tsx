@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./global.css";
 import ChatWidget from "./components/ChatWidget";
@@ -7,6 +7,13 @@ import NavLinks from "./components/NavLinks";
 export const metadata: Metadata = {
   title: "ATLAS | Smart Campus Navigation",
   description: "Find your way around CvSU Imus, indoors and outdoors.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#2433c4",
 };
 
 export default function RootLayout({

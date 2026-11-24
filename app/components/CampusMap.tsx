@@ -952,42 +952,44 @@ export default function CampusMap({
 
   return (
     <div className={styles.root}>
-      <section className={styles.builderPanel} aria-label="Node builder">
-        <div className={styles.builderActions}>
-          <button
-            type="button"
-            className={styles.builderButton}
-            aria-pressed={builderMode}
-            onClick={() => setBuilderMode((active) => !active)}
-          >
-            {builderMode ? "Stop node builder" : "Build map nodes"}
-          </button>
-          {builderMode && (
-            <span className={styles.builderHint}>
-              Move the cursor to preview coordinates, then click once per node.
-            </span>
-          )}
-          {builderMode && builderCursor && (
-            <span className={styles.builderCursor}>
-              Cursor: x {builderCursor.x}, y {builderCursor.y}
-            </span>
-          )}
-          {builderPoints.length > 0 && (
+      {(process.env.NODE_ENV !== "production" || isAdmin) && (
+        <section className={styles.builderPanel} aria-label="Node builder">
+          <div className={styles.builderActions}>
             <button
               type="button"
-              className={styles.builderClear}
-              onClick={() => setBuilderPoints([])}
+              className={styles.builderButton}
+              aria-pressed={builderMode}
+              onClick={() => setBuilderMode((active) => !active)}
             >
-              Clear coordinates
+              {builderMode ? "Stop node builder" : "Build map nodes"}
             </button>
+            {builderMode && (
+              <span className={styles.builderHint}>
+                Move the cursor to preview coordinates, then click once per node.
+              </span>
+            )}
+            {builderMode && builderCursor && (
+              <span className={styles.builderCursor}>
+                Cursor: x {builderCursor.x}, y {builderCursor.y}
+              </span>
+            )}
+            {builderPoints.length > 0 && (
+              <button
+                type="button"
+                className={styles.builderClear}
+                onClick={() => setBuilderPoints([])}
+              >
+                Clear coordinates
+              </button>
+            )}
+          </div>
+          {builderPoints.length > 0 && (
+            <pre className={styles.builderOutput} aria-live="polite">
+              {builderText}
+            </pre>
           )}
-        </div>
-        {builderPoints.length > 0 && (
-          <pre className={styles.builderOutput} aria-live="polite">
-            {builderText}
-          </pre>
-        )}
-      </section>
+        </section>
+      )}
       <div
         className={`${styles.layout} ${hideSidebar ? styles.noSidebar : ""}`}
       >

@@ -199,6 +199,7 @@ export default function NavigationView() {
           />
           Tap-to-route
         </label>
+        {process.env.NODE_ENV !== "production" && (
         <label className={styles.toggle}>
           <input
             type="checkbox"
@@ -207,6 +208,7 @@ export default function NavigationView() {
           />
           Show path nodes
         </label>
+        )}
         <span className={styles.banner}>{STATUS_TEXT[status]}</span>
       </div>
 
