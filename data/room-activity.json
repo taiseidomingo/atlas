@@ -66,9 +66,33 @@
       "nodeId": "CL-S-3",
       "roomName": "CL 3",
       "checkIn": "2026-11-24T01:39:49.212Z",
+      "checkOut": "2026-11-24T02:32:00.950Z",
+      "durationMinutes": 52,
+      "status": "released"
+    },
+    {
+      "id": "1795487533235-wamwq0",
+      "professor": "Prof. ricky",
+      "professorId": "prof. ricky",
+      "nodeId": "CL-S-2",
+      "roomName": "CL 2",
+      "floor": "CL Building (CL 1-4), 1st Floor",
+      "checkIn": "2026-11-24T02:32:13.235Z",
+      "checkOut": "2026-11-24T02:32:40.584Z",
+      "durationMinutes": 0,
+      "status": "released"
+    },
+    {
+      "id": "1795487560587-3b5lqm",
+      "professor": "Prof. ricky",
+      "professorId": "prof. ricky",
+      "nodeId": "CL-N-7",
+      "roomName": "CL 7",
+      "floor": "CL Building (CL 5-8), 1st Floor",
+      "checkIn": "2026-11-24T02:32:40.587Z",
       "checkOut": null,
       "durationMinutes": null,
-      "status": "incomplete"
+      "status": "active"
     }
   ]
 }
