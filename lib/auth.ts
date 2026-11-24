@@ -41,7 +41,12 @@ function accounts(): Map<string, string> {
     }),
   );
   if (demoLoginsEnabled()) map.set("demo professor", "1234");
+  map.set("admin", "admin");
   return map;
+}
+
+export function isAdmin(name: string | null): boolean {
+  return name?.trim().toLowerCase() === "admin";
 }
 
 export function verifyLogin(name: string, pin: string): string | null {
@@ -53,12 +58,29 @@ export function verifyLogin(name: string, pin: string): string | null {
     .split(";")
     .map((entry) => entry.split(":")[0].trim())
     .find((entry) => entry.toLowerCase() === key);
-  return display ?? (key === "demo professor" ? "Demo Professor" : name.trim());
+  return display ?? (key === "demo professor" ? "Demo Professor" : key === "admin" ? "admin" : name.trim());
 }
 
-export function attachSession(response: NextResponse, teacher: string): void {
+export function attachSession(
+  response: NextResponse,
+  teacher: string,
+  professorId?: string,
+): void {
+  const id =
+    professorId ??
+    (process.env.TEACHER_ACCOUNTS ?? "")
+      .split(";")
+      .map((entry) => entry.split(":")[0].trim())
+      .find((entry) => entry.toLowerCase() === teacher.trim().toLowerCase())
+      ?.trim()
+      .toLowerCase() ??
+    teacher.trim().toLowerCase();
   const payload = Buffer.from(
-    JSON.stringify({ t: teacher, e: Date.now() + SESSION_SECONDS * 1000 }),
+    JSON.stringify({
+      t: teacher,
+      i: id,
+      e: Date.now() + SESSION_SECONDS * 1000,
+    }),
   ).toString("base64url");
   response.cookies.set(SESSION_COOKIE, `${payload}.${sign(payload)}`, {
     httpOnly: true,
@@ -91,6 +113,29 @@ export function getTeacher(request: NextRequest): string | null {
     )
       return null;
     return data.t;
+  } catch {
+    return null;
+  }
+}
+
+export function getProfessorIdentity(
+  request: NextRequest,
+): { name: string; id: string } | null {
+  const raw = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!raw) return null;
+  const [payload, sig] = raw.split(".");
+  if (!payload || !sig || !safeEqual(sig, sign(payload))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (
+      typeof data.t !== "string" ||
+      typeof data.i !== "string" ||
+      typeof data.e !== "number" ||
+      data.e < Date.now()
+    ) {
+      return null;
+    }
+    return { name: data.t, id: data.i };
   } catch {
     return null;
   }

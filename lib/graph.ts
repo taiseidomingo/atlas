@@ -1,9 +1,4 @@
-import { newBuildingNodes, newBuildingEdges } from "./newBuilding";
-import { oldBuildingNodes, oldBuildingEdges } from "./oldBuilding";
-import {
-  auxiliaryBuildingNodes,
-  auxiliaryBuildingEdges,
-} from "./auxiliaryBuildings";
+import dotsData from "./dots.json";
 
 export type NodeId = string;
 
@@ -28,229 +23,429 @@ export interface CampusGraph {
   edges: GraphEdge[];
 }
 
+export const METERS_PER_PIXEL = 0.05;
 
-export const METERS_PER_PIXEL = 0.17;
-
-
-
-const outdoorNodes: GraphNode[] = [
-  { id: "Gate 2", name: "Gate 2", x: 218, y: 168, kind: "gate" },
-  {
-    id: "Top path (west)",
-    name: "Top path (west)",
-    x: 98,
-    y: 185,
-    kind: "junction",
-  },
-
-  { id: "Benches", name: "Benches", x: 183, y: 185, kind: "entrance" },
-  {
-    id: "Top path (center)",
-    name: "Top path (center)",
-    x: 229,
-    y: 185,
-    kind: "junction",
-  },
-  {
-    id: "CTMO building",
-    name: "CTMO building",
-    x: 263,
-    y: 185,
-    kind: "entrance",
-  },
-  {
-    id: "Northeast corner",
-    name: "Northeast corner",
-    x: 339,
-    y: 185,
-    kind: "junction",
-  },
-
-  {
-    id: "Northwest corner",
-    name: "Northwest corner",
-    x: 98,
-    y: 254,
-    kind: "junction",
-  },
-
-  {
-    id: "Comfort room",
-    name: "Comfort room",
-    x: 98,
-    y: 221,
-    kind: "entrance",
-  },
-  {
-    id: "West path (north)",
-    name: "West path (north)",
-    x: 72,
-    y: 254,
-    kind: "junction",
-  },
-  {
-    id: "Maintenance room",
-    name: "Maintenance room",
-    x: 72,
-    y: 366,
-    kind: "entrance",
-  },
-  { id: "Canteen area", name: "Canteen area", x: 72, y: 540, kind: "entrance" },
-  {
-    id: "Southwest corner",
-    name: "Southwest corner",
-    x: 72,
-    y: 629,
-    kind: "junction",
-  },
-
-
-  {
-    id: "Center path (top)",
-    name: "Center path (top)",
-    x: 229,
-    y: 292,
-    kind: "junction",
-  },
-  {
-    id: "Center path (north)",
-    name: "Center path (north)",
-    x: 221,
-    y: 298,
-    kind: "junction",
-  },
-
-  { id: "Gymnasium", name: "Gymnasium", x: 221, y: 380, kind: "entrance" },
-  {
-    id: "Center path (middle)",
-    name: "Center path (middle)",
-    x: 220,
-    y: 450,
-    kind: "junction",
-  },
-  {
-    id: "East path (north)",
-    name: "East path (north)",
-    x: 339,
-    y: 292,
-    kind: "junction",
-  },
-  {
-    id: "East path (south)",
-    name: "East path (south)",
-    x: 339,
-    y: 525,
-    kind: "junction",
-  },
-
-
-  {
-    id: "Center path (south)",
-    name: "Center path (south)",
-    x: 220,
-    y: 597,
-    kind: "junction",
-  },
-
-  { id: "Stage", name: "Stage", x: 250, y: 597, kind: "entrance" },
-  { id: "Smart Room", name: "Smart Room", x: 277, y: 597, kind: "entrance" },
-  {
-    id: "East path (lower)",
-    name: "East path (lower)",
-    x: 339,
-    y: 597,
-    kind: "junction",
-  },
-  {
-    id: "Southeast corner",
-    name: "Southeast corner",
-    x: 339,
-    y: 629,
-    kind: "junction",
-  },
-
-
-  {
-    id: "Learning Room",
-    name: "Learning Room",
-    x: 146,
-    y: 629,
-    kind: "entrance",
-  },
-  {
-    id: "Center path (lower)",
-    name: "Center path (lower)",
-    x: 220,
-    y: 629,
-    kind: "junction",
-  },
-  { id: "Gate 1", name: "Gate 1", x: 220, y: 690, kind: "gate" },
-];
-
-const outdoorById = new Map(outdoorNodes.map((n) => [n.id, n]));
-
-function edge(from: NodeId, to: NodeId): GraphEdge {
-  const a = outdoorById.get(from);
-  const b = outdoorById.get(to);
-  if (!a || !b) throw new Error(`edge(): unknown node "${!a ? from : to}"`);
-  const meters = Math.hypot(a.x - b.x, a.y - b.y) * METERS_PER_PIXEL;
-  return { from, to, weight: Math.round(meters * 10) / 10 };
+interface DotCoord {
+  x: number;
+  y: number;
 }
 
-const outdoorEdges: GraphEdge[] = [
-  edge("Gate 2", "Top path (center)"),
-  edge("Top path (west)", "Benches"),
-  edge("Benches", "Top path (center)"),
-  edge("Top path (center)", "CTMO building"),
-  edge("CTMO building", "Northeast corner"),
-  edge("Top path (west)", "Comfort room"),
-  edge("Comfort room", "Northwest corner"),
-  edge("Northwest corner", "West path (north)"),
-  edge("West path (north)", "Maintenance room"),
-  edge("Maintenance room", "Canteen area"),
-  edge("Canteen area", "Southwest corner"),
+const dotsMap = dotsData as Record<string, DotCoord[]>;
 
-  edge("Top path (center)", "Center path (top)"),
-  edge("Center path (top)", "Center path (north)"),
-  edge("Center path (north)", "Gymnasium"),
-  edge("Gymnasium", "Center path (middle)"),
-  edge("Center path (middle)", "Center path (south)"),
-  edge("Center path (south)", "Center path (lower)"),
-  edge("Center path (lower)", "Gate 1"),
+function buildCampusGraph(): CampusGraph {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const byId = new Map<string, GraphNode>();
+  const edgeSet = new Set<string>();
 
-  edge("Center path (top)", "East path (north)"),
-  edge("Northeast corner", "East path (north)"),
-  edge("East path (north)", "East path (south)"),
-  edge("East path (south)", "East path (lower)"),
-  edge("East path (lower)", "Southeast corner"),
+  function addNode(n: GraphNode) {
+    if (byId.has(n.id)) return;
+    nodes.push(n);
+    byId.set(n.id, n);
+  }
 
-  edge("Center path (south)", "Stage"),
-  edge("Stage", "Smart Room"),
-  edge("Smart Room", "East path (lower)"),
+  function addEdge(from: string, to: string, weight?: number) {
+    if (!byId.has(from) || !byId.has(to) || from === to) return;
+    const key = from < to ? `${from}|${to}` : `${to}|${from}`;
+    if (edgeSet.has(key)) return;
+    edgeSet.add(key);
+    const a = byId.get(from)!;
+    const b = byId.get(to)!;
+    const w =
+      weight ??
+      Math.max(
+        1,
+        Math.round(Math.hypot(a.x - b.x, a.y - b.y) * METERS_PER_PIXEL * 10) / 10,
+      );
+    edges.push({ from, to, weight: w });
+  }
 
-  edge("Southwest corner", "Learning Room"),
-  edge("Learning Room", "Center path (lower)"),
-];
+  function processMap(
+    key: string,
+    prefix: string,
+    floor: number = 1,
+    extraPairs: [number, number, number][] = [],
+  ) {
+    const dots = dotsMap[key] || [];
+    dots.forEach((d, i) => {
+      addNode({
+        id: `${prefix}-DOT-${i}`,
+        name: `${prefix} path dot ${i}`,
+        x: d.x,
+        y: d.y,
+        kind: "junction",
+        floor,
+      });
+    });
 
-export const campusGraph: CampusGraph = {
-  nodes: [
-    ...outdoorNodes,
-    ...newBuildingNodes,
-    ...oldBuildingNodes,
-    ...auxiliaryBuildingNodes,
-  ],
-  edges: [
-    ...outdoorEdges,
-    ...newBuildingEdges,
-    ...oldBuildingEdges,
-    ...auxiliaryBuildingEdges,
-    { from: "NB-1-ENTRANCE", to: "East path (south)", weight: 6 },
-    { from: "OB-1-ENTRANCE", to: "Center path (middle)", weight: 6 },
-    { from: "OB-1-CL-N-EXIT", to: "CL-N-ENTRANCE", weight: 2 },
-    { from: "OB-1-CL-S-EXIT", to: "CL-S-ENTRANCE", weight: 2 },
-    { from: "CTMO-ENTRANCE", to: "CTMO building", weight: 1 },
-    { from: "HM-ENTRANCE", to: "Top path (west)", weight: 5 },
-    { from: "CL-N-ENTRANCE", to: "OB-2-CL-N", weight: 1 },
-    { from: "CL-S-ENTRANCE", to: "OB-2-CL-S", weight: 1 },
-  ],
-};
+    for (let i = 0; i < dots.length; i++) {
+      for (let j = i + 1; j < dots.length; j++) {
+        const d = Math.hypot(dots[i].x - dots[j].x, dots[i].y - dots[j].y);
+        if (d <= 185) {
+          addEdge(`${prefix}-DOT-${i}`, `${prefix}-DOT-${j}`);
+        }
+      }
+    }
+
+    extraPairs.forEach(([i, j, w]) => {
+      addEdge(`${prefix}-DOT-${i}`, `${prefix}-DOT-${j}`, w);
+    });
+  }
+
+  // 1. Process all maps
+  processMap("01", "CAMPUS", 1);
+  processMap("02", "OB-1", 1, [[23, 62, 5.0]]);
+  processMap("03", "OB-2", 2);
+  processMap("04", "OB-3", 3, [
+    [8, 18, 5.0],
+    [9, 59, 5.0],
+    [18, 19, 5.0],
+    [59, 60, 5.0],
+  ]);
+  processMap("05", "CL-S-1", 1);
+  processMap("06", "CL-N-1", 1);
+  processMap("07", "CTMO-1", 1);
+  processMap("08", "GYM-1", 1);
+  processMap("09", "HM-1", 1);
+  processMap("10", "HM-2", 2);
+  processMap("11", "HM-3", 3);
+  processMap("12", "NB-1", 1);
+  processMap("13", "NB-2", 2);
+  processMap("14", "NB-3", 3);
+  processMap("15", "NB-4", 4);
+  processMap("16", "NB-5", 5);
+
+  function closestDot(prefix: string, x: number, y: number): GraphNode | null {
+    let best: GraphNode | null = null;
+    let bestDist = Infinity;
+    for (const node of nodes) {
+      if (node.id.startsWith(`${prefix}-DOT-`)) {
+        const dist = Math.hypot(node.x - x, node.y - y);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = node;
+        }
+      }
+    }
+    return best;
+  }
+
+  function linkToClosestDot(
+    nodeId: string,
+    dotPrefix: string,
+    targetX: number,
+    targetY: number,
+    weight?: number,
+  ) {
+    const dot = closestDot(dotPrefix, targetX, targetY);
+    if (dot) {
+      addEdge(nodeId, dot.id, weight);
+    }
+  }
+
+  // 2. Campus Outdoor Places & Gates
+  const campusPlaces: GraphNode[] = [
+    { id: "Gate 1", name: "Gate 1", x: 6556, y: 2400, kind: "gate", floor: 1 },
+    { id: "Gate 2", name: "Gate 2", x: 1236, y: 2400, kind: "gate", floor: 1 },
+    { id: "Smart Room", name: "Smart Room", x: 5708, y: 1900, kind: "entrance", claimable: true, floor: 1 },
+    { id: "Learning Room", name: "Learning Room", x: 6028, y: 3100, kind: "entrance", claimable: true, floor: 1 },
+    { id: "Benches", name: "Benches", x: 1932, y: 2850, kind: "entrance", floor: 1 },
+    { id: "Maintenance room", name: "Maintenance room", x: 2866, y: 3992, kind: "entrance", floor: 1 },
+    { id: "Canteen area", name: "Canteen area", x: 5032, y: 3988, kind: "entrance", floor: 1 },
+    { id: "Comfort room north", name: "Comfort room (North)", x: 1726, y: 3352, kind: "entrance", floor: 1 },
+    { id: "Comfort room south", name: "Comfort room (South)", x: 3758, y: 4144, kind: "entrance", floor: 1 },
+    { id: "Gymnasium", name: "Gymnasium", x: 4128, y: 1902, kind: "entrance", floor: 1 },
+    { id: "Stage", name: "Stage", x: 5278, y: 1902, kind: "entrance", floor: 1 },
+    { id: "CTMO building", name: "CTMO building", x: 2166, y: 2020, kind: "entrance", floor: 1 },
+    { id: "HM building", name: "HM building", x: 1870, y: 4090, kind: "entrance", floor: 1 },
+    { id: "CL North", name: "CL North", x: 2626, y: 3488, kind: "entrance", floor: 1 },
+    { id: "CL South", name: "CL South", x: 5544, y: 3494, kind: "entrance", floor: 1 },
+    { id: "NB-1-ENTRANCE", name: "New Building Entrance", x: 3960, y: 1220, kind: "gate", floor: 1 },
+    { id: "OB-1-ENTRANCE", name: "Old Building Entrance", x: 3950, y: 3728, kind: "gate", floor: 1 },
+    { id: "CTMO-ENTRANCE", name: "CTMO Entrance", x: 2584, y: 2020, kind: "gate", floor: 1 },
+    { id: "HM-ENTRANCE", name: "HM Entrance", x: 2120, y: 4090, kind: "gate", floor: 1 },
+    { id: "CL-N-ENTRANCE", name: "CL North Entrance", x: 2868, y: 3488, kind: "gate", floor: 1 },
+    { id: "CL-S-ENTRANCE", name: "CL South Entrance", x: 5300, y: 3494, kind: "gate", floor: 1 },
+    { id: "GYM-ENTRANCE", name: "Gymnasium Stage Entrance", x: 5476, y: 1902, kind: "gate", floor: 1 }
+  ];
+
+  campusPlaces.forEach((p) => {
+    addNode(p);
+    linkToClosestDot(p.id, "CAMPUS", p.x, p.y);
+  });
+
+  // Outdoor to indoor connections
+  addEdge("NB-1-ENTRANCE", "CAMPUS-DOT-1", 5.0);
+  linkToClosestDot("NB-1-ENTRANCE", "NB-1", 3960, 2228, 5.0);
+
+  linkToClosestDot("OB-1-ENTRANCE", "CAMPUS", 3950, 3728, 5.0);
+  linkToClosestDot("OB-1-ENTRANCE", "OB-1", 3950, 3650, 5.0);
+
+  linkToClosestDot("CTMO-ENTRANCE", "CAMPUS", 2584, 2020, 5.0);
+  linkToClosestDot("CTMO-ENTRANCE", "CTMO-1", 1650, 3400, 5.0);
+
+  linkToClosestDot("HM-ENTRANCE", "CAMPUS", 2120, 4090, 5.0);
+  linkToClosestDot("HM-ENTRANCE", "HM-1", 4000, 2600, 5.0);
+
+  linkToClosestDot("CL-N-ENTRANCE", "CAMPUS", 2868, 3488, 5.0);
+  linkToClosestDot("CL-N-ENTRANCE", "CL-N-1", 7450, 2050, 5.0);
+
+  linkToClosestDot("CL-S-ENTRANCE", "CAMPUS", 5300, 3494, 5.0);
+  linkToClosestDot("CL-S-ENTRANCE", "CL-S-1", 7050, 2100, 5.0);
+
+  linkToClosestDot("GYM-ENTRANCE", "CAMPUS", 5476, 1902, 5.0);
+  linkToClosestDot("GYM-ENTRANCE", "GYM-1", 4125, 2750, 5.0);
+
+  // 3. Indoor Rooms
+  // Map 02 (Old Building 1F) Rooms
+  const ob1Rooms = [
+    { id: "OB-1-HM", name: "HM LAB", x: 3974, y: 632, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3974, doorY: 1250 },
+    { id: "OB-1-HM-STOCK", name: "Hospitality Management Stockroom", x: 2574, y: 644, floor: 1, kind: "entrance" as const, doorX: 2574, doorY: 1250 },
+    { id: "OB-1-KITCHEN", name: "Old Kitchen", x: 5330, y: 644, floor: 1, kind: "entrance" as const, doorX: 5330, doorY: 1250 },
+    { id: "OB-1-RM107", name: "RM 107", x: 1122, y: 1358, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1720, doorY: 1358 },
+    { id: "OB-1-RM106", name: "RM 106", x: 1122, y: 1742, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1720, doorY: 1742 },
+    { id: "OB-1-RM105", name: "RM 105", x: 1122, y: 2126, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1720, doorY: 2126 },
+    { id: "OB-1-FACULTY", name: "Faculty", x: 1122, y: 2568, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1720, doorY: 2568 },
+    { id: "OB-1-CR1", name: "CR (West Upper)", x: 776, y: 2938, floor: 1, kind: "entrance" as const, doorX: 1720, doorY: 2938 },
+    { id: "OB-1-CR2", name: "CR (West Lower)", x: 1160, y: 2938, floor: 1, kind: "entrance" as const, doorX: 1720, doorY: 2938 },
+    { id: "OB-1-CONFERENCE", name: "Conference Room", x: 1162, y: 3274, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1850, doorY: 3274 },
+    { id: "OB-1-SUPPLY", name: "Supply Office", x: 1026, y: 3706, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1520, doorY: 3706 },
+    { id: "OB-1-MULTIMEDIA", name: "Multimedia Room", x: 1026, y: 4138, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1520, doorY: 4138 },
+    { id: "OB-1-RM116", name: "RM 116", x: 2378, y: 1520, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2280, doorY: 1900 },
+    { id: "OB-1-RM117", name: "RM 117", x: 2770, y: 1520, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2680, doorY: 1900 },
+    { id: "OB-1-RM113", name: "RM 113", x: 2378, y: 2344, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2280, doorY: 2724 },
+    { id: "OB-1-RM112", name: "RM 112", x: 2770, y: 2344, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2680, doorY: 2724 },
+    { id: "OB-1-RADIO", name: "Radio Room", x: 2574, y: 2864, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3000, doorY: 2800 },
+    { id: "OB-1-RM118", name: "RM 118", x: 5134, y: 1520, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5040, doorY: 1900 },
+    { id: "OB-1-RM119", name: "RM 119", x: 5526, y: 1520, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5430, doorY: 1900 },
+    { id: "OB-1-RM114", name: "RM 114", x: 5134, y: 2344, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5040, doorY: 2724 },
+    { id: "OB-1-RM115", name: "RM 115", x: 5526, y: 2344, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5430, doorY: 2724 },
+    { id: "OB-1-TVROOM", name: "TV Room", x: 5330, y: 2864, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4850, doorY: 2800 },
+    { id: "OB-1-SECURITY", name: "Civil Security Office", x: 2648, y: 3528, floor: 1, kind: "entrance" as const, doorX: 2500, doorY: 3274 },
+    { id: "OB-1-DISCIPLINE", name: "Office of the Campus Discipline", x: 5224, y: 3528, floor: 1, kind: "entrance" as const, doorX: 5100, doorY: 3274 },
+    { id: "OB-1-CHEMISTRY", name: "Chemistry Lab RM 120", x: 6970, y: 1416, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6200, doorY: 1416 },
+    { id: "OB-1-HEALTH", name: "Health Science Lab RM 121", x: 6970, y: 1916, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6200, doorY: 1916 },
+    { id: "OB-1-BIOLOGY", name: "Biology Lab RM 122", x: 6970, y: 2416, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6200, doorY: 2416 },
+    { id: "OB-1-CR3", name: "CR (East)", x: 7208, y: 2790, floor: 1, kind: "entrance" as const, doorX: 6200, doorY: 2790 },
+    { id: "OB-1-ADMISSION", name: "Admission Office", x: 6360, y: 3168, floor: 1, kind: "entrance" as const, doorX: 6000, doorY: 3168 },
+    { id: "OB-1-HEALTH-SERVICES", name: "Health Services Unit", x: 7042, y: 3168, floor: 1, kind: "entrance" as const, doorX: 6400, doorY: 3450 },
+    { id: "OB-1-STUDENT-DEV", name: "Student Development Service Office", x: 6320, y: 3940, floor: 1, kind: "entrance" as const, doorX: 6000, doorY: 3940 },
+    { id: "OB-1-SOUND-STORAGE", name: "Sound System Storage", x: 6680, y: 3940, floor: 1, kind: "entrance" as const, doorX: 6400, doorY: 3600 },
+    { id: "OB-1-OSAS-ALUMNI", name: "OSAS & Alumni Assoc. Office", x: 7020, y: 3940, floor: 1, kind: "entrance" as const, doorX: 6700, doorY: 3600 },
+    { id: "OB-1-STOCK", name: "Stock Room", x: 7338, y: 3940, floor: 1, kind: "entrance" as const, doorX: 7100, doorY: 3600 },
+    { id: "OB-1-CURVE-STAIRS", name: "Curved Stairs to Floor 2.1", x: 2072, y: 3300, floor: 1, kind: "gate" as const, doorX: 2340, doorY: 3274 },
+    { id: "OB-1-STAIRS-112", name: "Stairs beside RM 112 to Floor 2.2", x: 3066, y: 2414, floor: 1, kind: "gate" as const, doorX: 3200, doorY: 2400 },
+    { id: "OB-1-STAIRS-114", name: "Stairs beside RM 114 to Floor 2.2", x: 4834, y: 2414, floor: 1, kind: "gate" as const, doorX: 4700, doorY: 2400 },
+    { id: "OB-1-EXIT-CL-N", name: "Exit to CL 5-8", x: 1386, y: 1004, floor: 1, kind: "gate" as const, doorX: 1151, doorY: 975 },
+    { id: "OB-1-EXIT-CL-S", name: "Exit to CL 1-4", x: 6678, y: 1004, floor: 1, kind: "gate" as const, doorX: 6200, doorY: 1100 }
+  ];
+
+  ob1Rooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "OB-1", r.doorX, r.doorY);
+  });
+
+  // Map 03 (Old Building 2.1F) Rooms
+  const ob2Rooms = [
+    { id: "OB-2.1-CURVE-STAIRS", name: "Curved Stairs to 1st Floor", x: 2600, y: 2200, floor: 2, kind: "gate" as const, doorX: 2500, doorY: 2274 },
+    { id: "OB-2.1-CSG", name: "CSG Office", x: 1026, y: 2749, floor: 2, kind: "entrance" as const, claimable: true, doorX: 1190, doorY: 2542 },
+    { id: "OB-2.1-RM202", name: "RM 202", x: 1872, y: 3206, floor: 2, kind: "entrance" as const, claimable: true, doorX: 1590, doorY: 2973 },
+    { id: "OB-2.1-SUPPLY-STOCK", name: "Supply & Property Office", x: 2618, y: 3206, floor: 2, kind: "entrance" as const, doorX: 2464, doorY: 2973 },
+    { id: "OB-2.1-FITTING", name: "Fitting Room", x: 3238, y: 3206, floor: 2, kind: "entrance" as const, doorX: 3284, doorY: 2925 },
+    { id: "OB-2.1-LIBRARY", name: "Library", x: 5414, y: 3080, floor: 2, kind: "entrance" as const, doorX: 4791, doorY: 2675 },
+    { id: "OB-2.1-DCS", name: "Department of Computer Studies", x: 6360, y: 1566, floor: 2, kind: "entrance" as const, claimable: true, doorX: 6272, doorY: 2018 },
+    { id: "OB-2.1-FACULTY-STORAGE", name: "Storage Room (For Faculty)", x: 7250, y: 2323, floor: 2, kind: "entrance" as const, doorX: 7128, doorY: 2546 }
+  ];
+
+  ob2Rooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "OB-2", r.doorX, r.doorY);
+  });
+
+  // Map 04 (Old Building 2.2F) Rooms
+  const ob3Rooms = [
+    { id: "OB-2.2-STAIRS-L", name: "Stairs (Left) to 1st Floor", x: 2340, y: 2436, floor: 3, kind: "gate" as const, doorX: 2339, doorY: 2438 },
+    { id: "OB-2.2-STAIRS-R", name: "Stairs (Right) to 1st Floor", x: 5660, y: 2436, floor: 3, kind: "gate" as const, doorX: 5660, doorY: 2438 },
+    { id: "OB-2.2-FUNCTION", name: "Function Hall", x: 4000, y: 2100, floor: 3, kind: "entrance" as const, claimable: true, doorX: 3195, doorY: 2820 },
+    { id: "OB-2.2-RM212", name: "RM 212", x: 1728, y: 2250, floor: 3, kind: "entrance" as const, claimable: true, doorX: 2180, doorY: 2928 },
+    { id: "OB-2.2-RM213", name: "RM 213", x: 6276, y: 2250, floor: 3, kind: "entrance" as const, claimable: true, doorX: 5778, doorY: 2928 },
+    { id: "OB-2.2-TO-CL-S", name: "Walkway to CL 1-4", x: 740, y: 1970, floor: 3, kind: "gate" as const, doorX: 742, doorY: 2588 },
+    { id: "OB-2.2-TO-CL-N", name: "Walkway to CL 5-8", x: 7260, y: 1970, floor: 3, kind: "gate" as const, doorX: 7257, doorY: 2583 }
+  ];
+
+  ob3Rooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "OB-3", r.doorX, r.doorY);
+  });
+
+  // Map 05 (CL 1-4) Rooms
+  const clSRooms = [
+    { id: "CL-S-1", name: "CL 1", x: 6036, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6100, doorY: 3000 },
+    { id: "CL-S-2", name: "CL 2", x: 4576, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4600, doorY: 3000 },
+    { id: "CL-S-3", name: "CL 3", x: 3116, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3100, doorY: 3000 },
+    { id: "CL-S-4", name: "CL 4", x: 1656, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1650, doorY: 3000 },
+    { id: "CL-S-STAIRS", name: "CL 1-4 Stairs", x: 7425, y: 2475, floor: 1, kind: "gate" as const, doorX: 7050, doorY: 2100 }
+  ];
+
+  clSRooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "CL-S-1", r.doorX, r.doorY);
+  });
+
+  // Map 06 (CL 5-8) Rooms
+  const clNRooms = [
+    { id: "CL-N-5", name: "CL 5", x: 6036, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6000, doorY: 700 },
+    { id: "CL-N-6", name: "CL 6", x: 4576, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4420, doorY: 700 },
+    { id: "CL-N-7", name: "CL 7", x: 3116, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2950, doorY: 700 },
+    { id: "CL-N-8", name: "CL 8", x: 1656, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1500, doorY: 700 },
+    { id: "CL-N-STAIRS", name: "CL 5-8 Stairs", x: 7425, y: 2525, floor: 1, kind: "gate" as const, doorX: 7450, doorY: 2050 }
+  ];
+
+  clNRooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "CL-N-1", r.doorX, r.doorY);
+  });
+
+  // Map 07 (CTMO) Rooms
+  const ctmoRooms = [
+    { id: "CTMO-1", name: "CTMO 1", x: 2140, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2140, doorY: 3400 },
+    { id: "CTMO-2", name: "CTMO 2", x: 3120, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3120, doorY: 3400 },
+    { id: "CTMO-3", name: "CTMO 3", x: 4100, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4100, doorY: 3400 },
+    { id: "CTMO-GAD", name: "GAD & Knowledge Management Center Office", x: 5080, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5080, doorY: 3400 },
+    { id: "CTMO-RESEARCH", name: "Research Development and Extension Office", x: 6060, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6060, doorY: 3400 }
+  ];
+
+  ctmoRooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "CTMO-1", r.doorX, r.doorY);
+  });
+
+  // Map 08 (Gym Stage) Rooms
+  const gymRooms = [
+    { id: "GYM-STAGE", name: "Stage Floor", x: 4125, y: 1580, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4125, doorY: 2750 },
+    { id: "GYM-CR", name: "CR (Stage)", x: 2500, y: 3100, floor: 1, kind: "entrance" as const, doorX: 2500, doorY: 2750 },
+    { id: "GYM-DMST", name: "Department of Military Service and Tactics", x: 3550, y: 3100, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3550, doorY: 2750 },
+    { id: "GYM-OSD", name: "Office of the Sports and Development", x: 4600, y: 3100, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4600, doorY: 2750 },
+    { id: "GYM-FITTING", name: "Fitting Room", x: 5650, y: 3100, floor: 1, kind: "entrance" as const, doorX: 5650, doorY: 2750 }
+  ];
+
+  gymRooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "GYM-1", r.doorX, r.doorY);
+  });
+
+  // Maps 09-11 (HM Building 1F-3F)
+  for (let f = 1; f <= 3; f++) {
+    const rooms = [
+      { id: `HM-${f}-${f}02`, name: `HM ${f}02`, x: 2725, y: 1250, floor: f, kind: "entrance" as const, claimable: true, doorX: 2725, doorY: 2600 },
+      { id: `HM-${f}-${f}01`, name: `HM ${f}01`, x: 5475, y: 1250, floor: f, kind: "entrance" as const, claimable: true, doorX: 5475, doorY: 2600 },
+      { id: `HM-${f}-STAIRS`, name: `HM Stairs (${f}F)`, x: 5950, y: 3200, floor: f, kind: "gate" as const, doorX: 5150, doorY: 2700 }
+    ];
+    rooms.forEach((r) => {
+      addNode(r);
+      linkToClosestDot(r.id, `HM-${f}`, r.doorX, r.doorY);
+    });
+  }
+
+  // Maps 12-16 (New Building 1F-5F)
+  const nb1Rooms = [
+    { id: "NB-1-CR-S", name: "CR (South)", x: 990, y: 3175, floor: 1, kind: "entrance" as const, doorX: 1200, doorY: 2500 },
+    { id: "NB-1-MGMT", name: "Department of Management", x: 1620, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1620, doorY: 2500 },
+    { id: "NB-1-IDO", name: "IDO", x: 2300, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2300, doorY: 2500 },
+    { id: "NB-1-RESDEV", name: "Research and Development", x: 2820, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2820, doorY: 2500 },
+    { id: "NB-1-REGISTRAR", name: "Registrar", x: 3340, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3340, doorY: 2500 },
+    { id: "NB-1-MIS", name: "MIS", x: 3860, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3860, doorY: 2500 },
+    { id: "NB-1-CASHIER", name: "Cashier", x: 4380, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4380, doorY: 2500 },
+    { id: "NB-1-PE", name: "PE Dept", x: 4900, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4900, doorY: 2500 },
+    { id: "NB-1-GUIDANCE", name: "Guidance", x: 5420, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5420, doorY: 2500 },
+    { id: "NB-1-OSAS", name: "OSAS", x: 5940, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 5940, doorY: 2500 },
+    { id: "NB-1-DEAN", name: "Dean's Office", x: 6620, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6620, doorY: 2500 },
+    { id: "NB-1-CR-N", name: "CR (North)", x: 7250, y: 3175, floor: 1, kind: "entrance" as const, doorX: 7040, doorY: 2500 },
+    { id: "NB-1-ELEVATOR", name: "Elevator", x: 4320, y: 1200, floor: 1, kind: "gate" as const, doorX: 3900, doorY: 900 },
+    { id: "NB-1-STAIRS-L", name: "Stairs (Left)", x: 2825, y: 1275, floor: 1, kind: "gate" as const, doorX: 2600, doorY: 900 },
+    { id: "NB-1-STAIRS-R", name: "Stairs (Right)", x: 5825, y: 1275, floor: 1, kind: "gate" as const, doorX: 5600, doorY: 900 }
+  ];
+
+  nb1Rooms.forEach((r) => {
+    addNode(r);
+    linkToClosestDot(r.id, "NB-1", r.doorX, r.doorY);
+  });
+
+  // Floors 2-5
+  const upperDepts: Record<number, string> = {
+    2: "Education Department",
+    3: "Office AD Department",
+    4: "DLMC",
+    5: "Social Department"
+  };
+
+  for (let f = 2; f <= 5; f++) {
+    const deptName = upperDepts[f];
+    const rooms = [
+      { id: `NB-${f}-DEPT`, name: deptName, x: 1320, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 1320, doorY: 2240 },
+      { id: `NB-${f}-${f}01`, name: `Room ${f}01`, x: 2430, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 2430, doorY: 2240 },
+      { id: `NB-${f}-${f}02`, name: `Room ${f}02`, x: 3530, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 3530, doorY: 2240 },
+      { id: `NB-${f}-${f}03`, name: `Room ${f}03`, x: 4630, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 4630, doorY: 2240 },
+      { id: `NB-${f}-${f}04`, name: `Room ${f}04`, x: 5730, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 5730, doorY: 2240 },
+      { id: `NB-${f}-${f}05`, name: `Room ${f}05`, x: 6830, y: 2715, floor: f, kind: "entrance" as const, claimable: true, doorX: 6830, doorY: 2240 },
+      { id: `NB-${f}-ELEVATOR`, name: `Elevator (${f}F)`, x: 4320, y: 1200, floor: f, kind: "gate" as const, doorX: 3900, doorY: 900 },
+      { id: `NB-${f}-STAIRS-L`, name: `Stairs Left (${f}F)`, x: 2825, y: 1275, floor: f, kind: "gate" as const, doorX: 2600, doorY: 900 },
+      { id: `NB-${f}-STAIRS-R`, name: `Stairs Right (${f}F)`, x: 5825, y: 1275, floor: f, kind: "gate" as const, doorX: 5600, doorY: 900 }
+    ];
+    rooms.forEach((r) => {
+      addNode(r);
+      linkToClosestDot(r.id, `NB-${f}`, r.doorX, r.doorY);
+    });
+  }
+
+  // 4. Vertical stairs and inter-building transitions
+  const ob1Curve = closestDot("OB-1", 2340, 3274);
+  const ob2Curve = closestDot("OB-2", 2500, 2274);
+  if (ob1Curve && ob2Curve) addEdge(ob1Curve.id, ob2Curve.id, 8.0);
+
+  const ob1Stairs112 = closestDot("OB-1", 3200, 2400);
+  const ob3StairsL = closestDot("OB-3", 2339, 2438);
+  if (ob1Stairs112 && ob3StairsL) addEdge(ob1Stairs112.id, ob3StairsL.id, 8.0);
+
+  const ob1Stairs114 = closestDot("OB-1", 4700, 2400);
+  const ob3StairsR = closestDot("OB-3", 5660, 2438);
+  if (ob1Stairs114 && ob3StairsR) addEdge(ob1Stairs114.id, ob3StairsR.id, 8.0);
+
+  const ob1ExitCLN = closestDot("OB-1", 1151, 975);
+  const clNStairs = closestDot("CL-N-1", 7450, 2050);
+  if (ob1ExitCLN && clNStairs) addEdge(ob1ExitCLN.id, clNStairs.id, 5.0);
+
+  const ob1ExitCLS = closestDot("OB-1", 6200, 1100);
+  const clSStairs = closestDot("CL-S-1", 7050, 2100);
+  if (ob1ExitCLS && clSStairs) addEdge(ob1ExitCLS.id, clSStairs.id, 5.0);
+
+  const ob3WalkwayS = closestDot("OB-3", 742, 2588);
+  if (ob3WalkwayS && clSStairs) addEdge(ob3WalkwayS.id, clSStairs.id, 5.0);
+
+  const ob3WalkwayN = closestDot("OB-3", 7257, 2583);
+  if (ob3WalkwayN && clNStairs) addEdge(ob3WalkwayN.id, clNStairs.id, 5.0);
+
+  const hm1Stairs = closestDot("HM-1", 5150, 2700);
+  const hm2Stairs = closestDot("HM-2", 5150, 2700);
+  const hm3Stairs = closestDot("HM-3", 5150, 2700);
+  if (hm1Stairs && hm2Stairs) addEdge(hm1Stairs.id, hm2Stairs.id, 8.0);
+  if (hm2Stairs && hm3Stairs) addEdge(hm2Stairs.id, hm3Stairs.id, 8.0);
+
+  for (let f = 1; f < 5; f++) {
+    const liftBelow = closestDot(`NB-${f}`, 3900, 900);
+    const liftAbove = closestDot(`NB-${f + 1}`, 3900, 900);
+    if (liftBelow && liftAbove) addEdge(liftBelow.id, liftAbove.id, 8.0);
+
+    const stLBelow = closestDot(`NB-${f}`, 2600, 900);
+    const stLAbove = closestDot(`NB-${f + 1}`, 2600, 900);
+    if (stLBelow && stLAbove) addEdge(stLBelow.id, stLAbove.id, 8.0);
+
+    const stRBelow = closestDot(`NB-${f}`, 5600, 900);
+    const stRAbove = closestDot(`NB-${f + 1}`, 5600, 900);
+    if (stRBelow && stRAbove) addEdge(stRBelow.id, stRAbove.id, 8.0);
+  }
+
+  return { nodes, edges };
+}
+
+export const campusGraph: CampusGraph = buildCampusGraph();

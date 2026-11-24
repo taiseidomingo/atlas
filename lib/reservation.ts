@@ -1,10 +1,13 @@
 import { campusGraph, NodeId } from "./graph";
+import { getRoomName, recordRoomUse } from "./roomAdmin";
+import { finishRoomActivity, startRoomActivity } from "./activityLog";
 
 export interface Reservation {
   nodeId: NodeId;
   roomName: string;
   professor: string;
   claimedAt: string;
+  professorId?: string;
 }
 
 export type ClaimResult =
@@ -23,27 +26,40 @@ const reservations: Map<NodeId, Reservation> =
   globalStore.atlasReservations ??
   (globalStore.atlasReservations = new Map<NodeId, Reservation>());
 
-export function claimRoom(nodeId: NodeId, professor: string): ClaimResult {
+export function claimRoom(
+  nodeId: NodeId,
+  professor: string,
+  professorId = professor.trim().toLowerCase(),
+): ClaimResult {
   const node = campusGraph.nodes.find((n) => n.id === nodeId);
   if (!node) return { ok: false, reason: "not_found" };
   if (!node.claimable) return { ok: false, reason: "not_claimable" };
 
   const existing = reservations.get(nodeId);
+  if (existing && existing.professor === professor) {
+    return { ok: true, reservation: existing };
+  }
   if (existing && existing.professor !== professor) {
     return { ok: false, reason: "taken", heldBy: existing.professor };
   }
 
   reservations.forEach((r, id) => {
-    if (r.professor === professor && id !== nodeId) reservations.delete(id);
+    if (r.professor === professor && id !== nodeId) {
+      finishRoomActivity(id, professor);
+      reservations.delete(id);
+    }
   });
 
   const reservation: Reservation = {
     nodeId,
-    roomName: node.name,
+    roomName: getRoomName(nodeId, node.name),
     professor,
     claimedAt: new Date().toISOString(),
+    professorId,
   };
   reservations.set(nodeId, reservation);
+  recordRoomUse(nodeId);
+  startRoomActivity(nodeId, professor, professorId);
   return { ok: true, reservation };
 }
 
@@ -54,6 +70,7 @@ export function releaseRoom(
   const existing = reservations.get(nodeId);
   if (!existing) return "missing";
   if (existing.professor !== professor) return "not_yours";
+  finishRoomActivity(nodeId, professor);
   reservations.delete(nodeId);
   return "released";
 }

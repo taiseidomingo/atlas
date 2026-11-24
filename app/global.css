@@ -12,18 +12,6 @@
   --shadow: 0 8px 30px rgba(15, 26, 74, 0.08);
 }
 
-:root[data-theme="dark"] {
-  --bg: #0a1022;
-  --surface: #111a33;
-  --ink: #e6ebff;
-  --muted: #93a0c8;
-  --line: #26335c;
-  --brand: #7b92ff;
-  --brand-ink: #0a1022;
-  --brand-soft: #1a2551;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -99,18 +87,6 @@ main {
 .nav a[aria-current="page"] {
   background: var(--brand-soft);
   color: var(--brand);
-}
-
-.iconBtn {
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink);
-  border-radius: 999px;
-  height: 38px;
-  padding: 0 14px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.9rem;
 }
 
 .footer {

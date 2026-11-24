@@ -1,5 +1,6 @@
 import { campusGraph } from "./graph";
 import { buildingById, buildingOfNode } from "./mapData";
+import { getRoomName } from "./roomAdmin";
 
 export interface ClaimableRoom {
   id: string;
@@ -15,7 +16,11 @@ function placeOf(id: string, floor?: number): string {
 export function listClaimableRooms(): ClaimableRoom[] {
   return campusGraph.nodes
     .filter((n) => n.claimable)
-    .map((n) => ({ id: n.id, name: n.name, place: placeOf(n.id, n.floor) }))
+    .map((n) => ({
+      id: n.id,
+      name: getRoomName(n.id, n.name),
+      place: placeOf(n.id, n.floor),
+    }))
     .sort(
       (a, b) =>
         a.place.localeCompare(b.place) ||

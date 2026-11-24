@@ -1,4 +1,4 @@
-export type BuildingId = "new" | "old" | "ctmo" | "hm" | "cl-n" | "cl-s";
+export type BuildingId = "new" | "old" | "ctmo" | "hm" | "cl-n" | "cl-s" | "gym";
 
 export interface Rect {
   x: number;
@@ -15,6 +15,7 @@ export interface PlanRoom extends Rect {
   nodeId?: string;
   placeholder?: boolean;
   openBuildingId?: BuildingId;
+  openFloor?: number;
 }
 
 export interface FloorPlan {
@@ -46,25 +47,23 @@ export interface CampusShape extends Rect {
   buildingId?: BuildingId;
 }
 
-export const CAMPUS_VIEWBOX = { w: 462, h: 822 };
-
-export const PLAN_HEIGHT = 2000;
+export const CAMPUS_VIEWBOX = { w: 8000, h: 4500 };
+export const PLAN_HEIGHT = 4500;
 
 export function planPoint(x: number, y: number): { x: number; y: number } {
-  return { x: PLAN_HEIGHT - y, y: x };
+  return { x, y };
 }
 
 export function planRect(r: Rect): Rect {
-  return { x: PLAN_HEIGHT - (r.y + r.h), y: r.x, w: r.h, h: r.w };
+  return r;
 }
 
 export function planViewBox(bounds: Rect, margin = 40): Rect {
-  const r = planRect(bounds);
   return {
-    x: r.x - margin,
-    y: r.y - margin,
-    w: r.w + margin * 2,
-    h: r.h + margin * 2,
+    x: 0,
+    y: 0,
+    w: 8000,
+    h: 4500,
   };
 }
 
@@ -75,17 +74,9 @@ export function buildingOfNode(nodeId: string): BuildingId | null {
   if (nodeId.startsWith("HM-")) return "hm";
   if (nodeId.startsWith("CL-N-")) return "cl-n";
   if (nodeId.startsWith("CL-S-")) return "cl-s";
+  if (nodeId.startsWith("GYM-")) return "gym";
   return null;
 }
-
-const FLOOR_NAMES = [
-  "",
-  "1st Floor",
-  "2nd Floor",
-  "3rd Floor",
-  "4th Floor",
-  "5th Floor",
-];
 
 function room(
   id: string,
@@ -101,556 +92,271 @@ function room(
   return { id, label, x, y, w, h, type, nodeId, department };
 }
 
-const newFloor1: FloorPlan = {
-  floor: 1,
-  name: FLOOR_NAMES[1],
-  bounds: { x: 150, y: 30, w: 670, h: 1940 },
-  open: [{ x: 320, y: 38, w: 485, h: 1924 }],
-  rooms: [
-    room("elevator", "Elevator", 165, 830, 155, 245, "Elevator"),
-    room("cr-n", "CR", 680, 42, 120, 118, "Comfort room", "NB-1-CR-N"),
-    room(
-      "dean",
-      "Dean's\nOffice",
-      585,
-      167,
-      215,
-      238,
-      "Office",
-      "NB-1-DEAN",
-      "Dean's Office",
-    ),
-    room(
-      "osas",
-      "OSAS",
-      585,
-      411,
-      215,
-      142,
-      "Office",
-      "NB-1-OSAS",
-      "Office of Student Affairs and Services",
-    ),
-    room(
-      "guidance",
-      "Guidance",
-      585,
-      558,
-      215,
-      144,
-      "Office",
-      "NB-1-GUIDANCE",
-      "Guidance Office",
-    ),
-    room(
-      "pe",
-      "PE Dept.",
-      585,
-      708,
-      215,
-      142,
-      "Department office",
-      "NB-1-PE",
-      "Physical Education Department",
-    ),
-    room(
-      "cashier",
-      "Cashier",
-      585,
-      855,
-      215,
-      143,
-      "Office",
-      "NB-1-CASHIER",
-      "Cashier",
-    ),
-    room(
-      "mis",
-      "MIS",
-      585,
-      1003,
-      215,
-      142,
-      "Office",
-      "NB-1-MIS",
-      "Management Information System",
-    ),
-    room(
-      "registrar",
-      "Registrar",
-      585,
-      1150,
-      215,
-      143,
-      "Office",
-      "NB-1-REGISTRAR",
-      "Registrar",
-    ),
-    room(
-      "resdev",
-      "Res / Dev",
-      585,
-      1298,
-      215,
-      143,
-      "Office",
-      "NB-1-RESDEV",
-      "Research and Development",
-    ),
-    room("ido", "IDO", 585, 1446, 215, 142, "Office", "NB-1-IDO", "IDO"),
-    room(
-      "mgmt",
-      "Dept. of\nManagement",
-      585,
-      1593,
-      215,
-      240,
-      "Department office",
-      "NB-1-MGMT",
-      "Department of Management",
-    ),
-    room("cr-s", "CR", 682, 1838, 118, 120, "Comfort room", "NB-1-CR-S"),
-  ],
-};
-
-function newUpperFloor(
-  floor: number,
-  deptLabel: string,
-  deptName: string,
-): FloorPlan {
-  const spans: [number, number, number][] = [
-    [5, 42, 328],
-    [4, 375, 311],
-    [3, 691, 319],
-    [2, 1015, 303],
-    [1, 1323, 319],
-  ];
-  return {
-    floor,
-    name: FLOOR_NAMES[floor],
-    bounds: { x: 340, y: 30, w: 510, h: 1940 },
-    open: [{ x: 355, y: 38, w: 230, h: 1924 }],
-    rooms: [
-      ...spans.map(([n, y, h]) =>
-        room(
-          `room-${floor}0${n}`,
-          `Room ${floor}0${n}`,
-          585,
-          y,
-          248,
-          h,
-          "Classroom",
-          `NB-${floor}-${floor}0${n}`,
-        ),
-      ),
-      room(
-        `dept-${floor}`,
-        deptLabel,
-        585,
-        1647,
-        248,
-        311,
-        "Department office",
-        `NB-${floor}-DEPT${floor}`,
-        deptName,
-      ),
-    ],
-  };
-}
-
+// 1. Old Building Floors (Map 02, 03, 04)
 const oldFloor1: FloorPlan = {
   floor: 1,
-  name: FLOOR_NAMES[1],
-  bounds: { x: 90, y: 850, w: 1040, h: 600 },
-  open: [{ x: 110, y: 870, w: 1000, h: 560 }],
-  note: "Old Building first floor",
+  name: "1st Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
   rooms: [
-    room("hm-lab", "HM\nLAB", 119, 907, 220, 145, "Laboratory", "OB-1-HM"),
-    room(
-      "stock-a",
-      "Stock\nRoom",
-      222,
-      1108,
-      92,
-      82,
-      "Storage",
-      "OB-1-STOCK-A",
-    ),
-    room(
-      "stock-b",
-      "Stock\nRoom",
-      119,
-      1064,
-      92,
-      82,
-      "Storage",
-      "OB-1-STOCK-B",
-    ),
-    room("rm-107", "RM 107", 560, 1155, 76, 158, "Classroom", "OB-1-CLASS-A"),
-    room("rm-106", "RM 106", 480, 1155, 76, 158, "Classroom", "OB-1-CLASS-B"),
-    room("rm-105", "RM 105", 390, 1155, 86, 158, "Classroom", "OB-1-CLASS-C"),
-    room("rm-104", "RM 104", 300, 1155, 86, 158, "Classroom", "OB-1-CLASS-D"),
-    room("rm-103", "RM 103", 210, 1155, 86, 158, "Classroom", "OB-1-CLASS-E"),
-    room(
-      "faculty-1f",
-      "Faculty",
-      624,
-      1352,
-      145,
-      105,
-      "Faculty room",
-      "OB-1-FACULTY-1F",
-    ),
-    room(
-      "conference",
-      "Conference\nRoom",
-      838,
-      1328,
-      115,
-      150,
-      "Conference room",
-      "OB-1-CONFERENCE",
-    ),
-    room(
-      "supply",
-      "Supply\nOffice",
-      928,
-      1359,
-      75,
-      120,
-      "Office",
-      "OB-1-SUPPLY",
-    ),
-    room(
-      "multimedia",
-      "Multimedia\nRoom",
-      1005,
-      1328,
-      75,
-      150,
-      "Room",
-      "OB-1-MULTIMEDIA",
-    ),
-    room("rm-119", "RM 119", 363, 965, 110, 82, "Classroom", "OB-1-RM119"),
-    room("rm-118", "RM 118", 363, 1055, 110, 82, "Classroom", "OB-1-RM118"),
-    room("rm-115", "RM 115", 560, 965, 110, 82, "Classroom", "OB-1-RM115"),
-    room("rm-114", "RM 114", 560, 1055, 110, 82, "Classroom", "OB-1-RM114"),
-    room("radio", "Radio\nRoom", 700, 965, 105, 172, "Room", "OB-1-RADIO"),
-    room("rm-117", "RM 117", 560, 1155, 110, 82, "Classroom", "OB-1-RM117"),
-    room("rm-116", "RM 116", 560, 1245, 110, 82, "Classroom", "OB-1-RM116"),
-    room("rm-112", "RM 112", 700, 1155, 110, 82, "Classroom", "OB-1-RM112"),
-    room("rm-113", "RM 113", 700, 1245, 110, 82, "Classroom", "OB-1-RM113"),
-    room(
-      "chemistry",
-      "Chemistry Lab\nRM 120",
-      220,
-      907,
-      150,
-      145,
-      "Laboratory",
-      "OB-1-CHEMISTRY",
-    ),
-    room(
-      "health",
-      "Health Science Lab\nRM 121",
-      375,
-      907,
-      150,
-      145,
-      "Laboratory",
-      "OB-1-HEALTH",
-    ),
-    room(
-      "biology",
-      "Biology Lab\nRM 122",
-      530,
-      907,
-      150,
-      145,
-      "Laboratory",
-      "OB-1-BIOLOGY",
-    ),
-    room("clinic", "Clinic", 690, 907, 105, 145, "Clinic", "OB-1-CLINIC"),
-    room(
-      "student-gov",
-      "Student Government\nOffice",
-      900,
-      907,
-      150,
-      145,
-      "Office",
-      "OB-1-STUDENT-GOV",
-    ),
-
-
-    room(
-      "stock-c",
-      "Stock\nRoom",
-      131,
-      729,
-      52,
-      114,
-      "Storage",
-      "OB-1-STOCK-C",
-    ),
-    room(
-      "stock-d",
-      "Stock\nRoom",
-      130,
-      459,
-      51,
-      111,
-      "Storage",
-      "OB-1-STOCK-D",
-    ),
-    room(
-      "stock-e",
-      "Stock\nRoom",
-      633,
-      333,
-      102,
-      52,
-      "Storage",
-      "OB-1-STOCK-E",
-    ),
-    room(
-      "stock-f",
-      "Stock\nRoom",
-      633,
-      276,
-      102,
-      55,
-      "Storage",
-      "OB-1-STOCK-F",
-    ),
-    room("tv", "TV\nRoom", 440, 459, 53, 114, "Room", "OB-1-TVROOM"),
-    room("cr-a", "CR", 495, 971, 59, 47, "Comfort room", "OB-1-CR-A"),
-    room("cr-b", "CR", 519, 909, 36, 59, "Comfort room", "OB-1-CR-B"),
-    room("cr-c", "CR", 491, 280, 59, 62, "Comfort room", "OB-1-CR-C"),
-    room("ms", "M/S", 555, 390, 73, 58, "Room", "OB-1-MS"),
-    room("ocd", "OCD", 620, 495, 31, 39, "Office", "OB-1-OCD"),
-    room("security", "Security", 620, 765, 31, 42, "Office", "OB-1-SECURITY"),
-  ],
+    room("hm-lab", "HM LAB", 3176, 120, 1596, 1024, "Laboratory", "OB-1-HM"),
+    room("hm-stock", "HM Stockroom", 2188, 120, 772, 1048, "Storage", "OB-1-HM-STOCK"),
+    room("kitchen", "Old Kitchen", 4944, 120, 772, 1048, "Laboratory", "OB-1-KITCHEN"),
+    room("rm-107", "RM 107", 616, 1176, 1012, 364, "Classroom", "OB-1-RM107"),
+    room("rm-106", "RM 106", 616, 1560, 1012, 364, "Classroom", "OB-1-RM106"),
+    room("rm-105", "RM 105", 616, 1944, 1012, 364, "Classroom", "OB-1-RM105"),
+    room("faculty", "Faculty", 616, 2328, 1012, 480, "Faculty Room", "OB-1-FACULTY"),
+    room("cr-1", "CR", 616, 2828, 320, 220, "Comfort Room", "OB-1-CR1"),
+    room("cr-2", "CR", 960, 2828, 400, 220, "Comfort Room", "OB-1-CR2"),
+    room("conference", "Conference Room", 616, 3068, 1092, 412, "Conference Room", "OB-1-CONFERENCE"),
+    room("supply", "Supply Office", 616, 3500, 820, 412, "Office", "OB-1-SUPPLY"),
+    room("multimedia", "Multimedia Room", 616, 3932, 820, 412, "Multimedia Room", "OB-1-MULTIMEDIA"),
+    room("rm-116", "RM 116", 2188, 1200, 380, 640, "Classroom", "OB-1-RM116"),
+    room("rm-117", "RM 117", 2580, 1200, 380, 640, "Classroom", "OB-1-RM117"),
+    room("rm-113", "RM 113", 2188, 2024, 380, 640, "Classroom", "OB-1-RM113"),
+    room("rm-112", "RM 112", 2580, 2024, 380, 640, "Classroom", "OB-1-RM112"),
+    room("radio", "Radio Room", 2188, 2684, 772, 360, "Radio Room", "OB-1-RADIO"),
+    room("rm-118", "RM 118", 4944, 1200, 380, 640, "Classroom", "OB-1-RM118"),
+    room("rm-119", "RM 119", 5336, 1200, 380, 640, "Classroom", "OB-1-RM119"),
+    room("rm-114", "RM 114", 4944, 2024, 380, 640, "Classroom", "OB-1-RM114"),
+    room("rm-115", "RM 115", 5336, 2024, 380, 640, "Classroom", "OB-1-RM115"),
+    room("tv", "TV Room", 4944, 2684, 772, 360, "TV Room", "OB-1-TVROOM"),
+    room("security", "Civil Security Office", 2404, 3376, 488, 304, "Office", "OB-1-SECURITY"),
+    room("discipline", "Campus Discipline", 4980, 3376, 488, 304, "Office", "OB-1-DISCIPLINE"),
+    room("chemistry", "Chemistry Lab RM 120", 6464, 1176, 1012, 480, "Laboratory", "OB-1-CHEMISTRY"),
+    room("health", "Health Science Lab RM 121", 6464, 1676, 1012, 480, "Laboratory", "OB-1-HEALTH"),
+    room("biology", "Biology Lab RM 122", 6464, 2176, 1012, 480, "Laboratory", "OB-1-BIOLOGY"),
+    room("cr-3", "CR", 6940, 2680, 536, 220, "Comfort Room", "OB-1-CR3"),
+    room("admission", "Admission Office", 6140, 2928, 440, 480, "Office", "OB-1-ADMISSION"),
+    room("health-services", "Health Services Unit", 6608, 2928, 868, 480, "Clinic", "OB-1-HEALTH-SERVICES"),
+    room("student-dev", "Student Development", 6140, 3660, 360, 560, "Office", "OB-1-STUDENT-DEV"),
+    room("sound-storage", "Sound System Storage", 6520, 3660, 320, 560, "Storage", "OB-1-SOUND-STORAGE"),
+    room("osas-alumni", "OSAS & Alumni", 6860, 3660, 320, 560, "Office", "OB-1-OSAS-ALUMNI"),
+    room("stock", "Stock Room", 7200, 3660, 276, 560, "Storage", "OB-1-STOCK"),
+    { ...room("curve-stairs", "Curved Stairs to Floor 2.1", 1904, 3132, 336, 336, "Stairs", "OB-1-CURVE-STAIRS"), openBuildingId: "old", openFloor: 2 },
+    { ...room("stairs-112", "Stairs to Floor 2.2", 2972, 2264, 188, 300, "Stairs", "OB-1-STAIRS-112"), openBuildingId: "old", openFloor: 3 },
+    { ...room("stairs-114", "Stairs to Floor 2.2", 4740, 2264, 188, 300, "Stairs", "OB-1-STAIRS-114"), openBuildingId: "old", openFloor: 3 },
+    { ...room("exit-cl-n", "Exit to CL 5-8", 1172, 884, 428, 240, "Exit", "OB-1-EXIT-CL-N"), openBuildingId: "cl-n" },
+    { ...room("exit-cl-s", "Exit to CL 1-4", 6464, 884, 428, 240, "Exit", "OB-1-EXIT-CL-S"), openBuildingId: "cl-s" }
+  ]
 };
 
-const oldFloor2: FloorPlan = {
+const oldFloor2_1: FloorPlan = {
   floor: 2,
-  name: FLOOR_NAMES[2],
-  bounds: { x: 20, y: 465, w: 1090, h: 1105 },
-  open: [{ x: 65, y: 475, w: 1030, h: 1085 }],
+  name: "Floor 2.1",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
   rooms: [
-    {
-      ...room(
-        "cl-n",
-        "CL Building\nCL 5-8",
-        68,
-        478,
-        214,
-        162,
-        "Classroom",
-        "OB-2-CL-N",
-      ),
-      openBuildingId: "cl-n",
-    },
-    {
-      ...room(
-        "cl-s",
-        "CL Building\nCL 1-4",
-        68,
-        1393,
-        214,
-        160,
-        "Classroom",
-        "OB-2-CL-S",
-      ),
-      openBuildingId: "cl-s",
-    },
-    room(
-      "function-ext",
-      "",
-      32,
-      905,
-      46,
-      210,
-      "Function hall",
-      "OB-2-FUNCTION",
-    ),
-    room(
-      "function",
-      "Function Hall",
-      78,
-      822,
-      582,
-      388,
-      "Function hall",
-      "OB-2-FUNCTION",
-    ),
-    room(
-      "faculty",
-      "Faculty",
-      745,
-      478,
-      123,
-      319,
-      "Faculty room",
-      "OB-2-FACULTY",
-    ),
-    room("library", "Library", 967, 478, 123, 599, "Library", "OB-2-LIBRARY"),
-    room("stock1", "Stock\nRoom", 1005, 1082, 85, 85, "Storage", "OB-2-STOCK1"),
-    room("stock2", "Stock\nRoom", 1005, 1172, 85, 85, "Storage", "OB-2-STOCK2"),
-    room(
-      "classroom",
-      "Classroom",
-      1005,
-      1262,
-      85,
-      145,
-      "Classroom",
-      "OB-2-CLASSROOM",
-    ),
-    room(
-      "org",
-      "Org Office",
-      843,
-      1412,
-      247,
-      140,
-      "Office",
-      "OB-2-ORG",
-      "Organization Office",
-    ),
-  ],
+    room("curve-stairs-down", "Curved Stairs to 1st Floor", 2200, 1600, 1000, 700, "Stairs", "OB-2.1-CURVE-STAIRS"),
+    room("csg", "CSG Office", 616, 2024, 820, 1450, "Office", "OB-2.1-CSG"),
+    room("rm-202", "RM 202", 1436, 2940, 872, 532, "Classroom", "OB-2.1-RM202"),
+    room("supply-stock", "Supply & Property Office", 2308, 2940, 620, 532, "Storage", "OB-2.1-SUPPLY-STOCK"),
+    room("fitting", "Fitting Room", 2928, 2940, 620, 532, "Storage", "OB-2.1-FITTING"),
+    room("library", "Library", 3548, 2690, 3732, 780, "Library", "OB-2.1-LIBRARY"),
+    room("dcs", "Dept. of Computer Studies", 5240, 1176, 2240, 780, "Department Office", "OB-2.1-DCS"),
+    room("faculty-storage", "Storage Room (For Faculty)", 7020, 1956, 460, 734, "Storage", "OB-2.1-FACULTY-STORAGE")
+  ]
 };
 
-function auxiliaryFloor(
-  floor: number,
-  prefix: string,
-  rooms: { code: string; label: string; department?: string }[],
-  layout: { x: number; w: number } = { x: 270, w: 430 },
-): FloorPlan {
+const oldFloor2_2: FloorPlan = {
+  floor: 3,
+  name: "Floor 2.2",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("stairs-l-down", "Stairs to 1st Floor", 2160, 2144, 360, 584, "Stairs", "OB-2.2-STAIRS-L"),
+    room("stairs-r-down", "Stairs to 1st Floor", 5480, 2144, 360, 584, "Stairs", "OB-2.2-STAIRS-R"),
+    room("function", "Function Hall", 2584, 1440, 2836, 1320, "Function Hall", "OB-2.2-FUNCTION"),
+    room("rm-212", "RM 212", 1356, 1440, 744, 1620, "Classroom", "OB-2.2-RM212"),
+    room("rm-213", "RM 213", 5904, 1440, 744, 1620, "Classroom", "OB-2.2-RM213"),
+    { ...room("to-cl-s", "CL Building RM 1-4", 208, 1440, 1064, 1060, "Walkway", "OB-2.2-TO-CL-S"), openBuildingId: "cl-s" },
+    { ...room("to-cl-n", "CL Building RM 5-8", 6728, 1440, 1064, 1060, "Walkway", "OB-2.2-TO-CL-N"), openBuildingId: "cl-n" }
+  ]
+};
+
+// 2. New Building Floors (Maps 12-16)
+const nbFloor1: FloorPlan = {
+  floor: 1,
+  name: "1st Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("cr-s", "CR (South)", 780, 2950, 420, 450, "Comfort Room", "NB-1-CR-S"),
+    room("mgmt", "Dept. of Management", 1200, 2580, 840, 820, "Office", "NB-1-MGMT"),
+    room("ido", "IDO", 2040, 2580, 520, 820, "Office", "NB-1-IDO"),
+    room("resdev", "Res/Dev", 2560, 2580, 520, 820, "Office", "NB-1-RESDEV"),
+    room("registrar", "Registrar", 3080, 2580, 520, 820, "Office", "NB-1-REGISTRAR"),
+    room("mis", "MIS", 3600, 2580, 520, 820, "Office", "NB-1-MIS"),
+    room("cashier", "Cashier", 4120, 2580, 520, 820, "Office", "NB-1-CASHIER"),
+    room("pe", "PE Dept", 4640, 2580, 520, 820, "Office", "NB-1-PE"),
+    room("guidance", "Guidance", 5160, 2580, 520, 820, "Office", "NB-1-GUIDANCE"),
+    room("osas", "OSAS", 5680, 2580, 520, 820, "Office", "NB-1-OSAS"),
+    room("dean", "Dean's Office", 6200, 2580, 840, 820, "Office", "NB-1-DEAN"),
+    room("cr-n", "CR (North)", 7040, 2950, 420, 450, "Comfort Room", "NB-1-CR-N"),
+    room("elevator", "Elevator", 3900, 900, 840, 600, "Elevator", "NB-1-ELEVATOR"),
+    room("stairs-l", "Stairs (Left)", 2600, 900, 450, 750, "Stairs", "NB-1-STAIRS-L"),
+    room("stairs-r", "Stairs (Right)", 5600, 900, 450, 750, "Stairs", "NB-1-STAIRS-R")
+  ]
+};
+
+function newUpperFloorPlan(floor: number, deptLabel: string, deptName: string): FloorPlan {
+  const ordinal = ["", "1st Floor", "2nd Floor", "3rd Floor", "4th Floor", "5th Floor"][floor];
   return {
     floor,
-    name: FLOOR_NAMES[floor],
-    bounds: { x: 200, y: 120, w: 600, h: 1500 },
-    open: [{ x: 220, y: 140, w: 560, h: 1460 }],
-    rooms: rooms.map((item, index) =>
-      room(
-        `${floor}-${item.code}`,
-        item.label,
-        layout.x,
-        160 + index * 190,
-        layout.w,
-        175,
-        "Room",
-        `${prefix}-${floor}-${item.code}`,
-        item.department,
-      ),
-    ),
+    name: ordinal,
+    bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+    open: [],
+    rooms: [
+      room("dept-" + floor, deptLabel, 760, 2240, 1120, 950, "Department Office", "NB-" + floor + "-DEPT", deptName),
+      room("room-" + floor + "01", "Room " + floor + "01", 1880, 2240, 1100, 950, "Classroom", "NB-" + floor + "-" + floor + "01"),
+      room("room-" + floor + "02", "Room " + floor + "02", 2980, 2240, 1100, 950, "Classroom", "NB-" + floor + "-" + floor + "02"),
+      room("room-" + floor + "03", "Room " + floor + "03", 4080, 2240, 1100, 950, "Classroom", "NB-" + floor + "-" + floor + "03"),
+      room("room-" + floor + "04", "Room " + floor + "04", 5180, 2240, 1100, 950, "Classroom", "NB-" + floor + "-" + floor + "04"),
+      room("room-" + floor + "05", "Room " + floor + "05", 6280, 2240, 1100, 950, "Classroom", "NB-" + floor + "-" + floor + "05"),
+      room("elevator-" + floor, "Elevator", 3900, 900, 840, 600, "Elevator", "NB-" + floor + "-ELEVATOR"),
+      room("stairs-l-" + floor, "Stairs (Left)", 2600, 900, 450, 750, "Stairs", "NB-" + floor + "-STAIRS-L"),
+      room("stairs-r-" + floor, "Stairs (Right)", 5600, 900, 450, 750, "Stairs", "NB-" + floor + "-STAIRS-R")
+    ]
   };
 }
 
-const ctmoFloors: FloorPlan[] = [
-  auxiliaryFloor(
-    1,
-    "CTMO",
-    [
-      { code: "1", label: "CTMO 1" },
-      { code: "2", label: "CTMO 2" },
-      { code: "3", label: "CTMO 3" },
-      { code: "GAD", label: "GAD & Knowledge\nManagement Center" },
-      { code: "RESEARCH", label: "Research Development &\nExtension Office" },
-    ],
-    { x: 160, w: 445 },
-  ),
-];
+// 3. CL Building (Maps 05, 06)
+const clSFloor: FloorPlan = {
+  floor: 1,
+  name: "1st Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("cl-1", "CL 1", 5336, 1200, 1400, 1500, "Classroom", "CL-S-1"),
+    room("cl-2", "CL 2", 3876, 1200, 1400, 1500, "Classroom", "CL-S-2"),
+    room("cl-3", "CL 3", 2416, 1200, 1400, 1500, "Classroom", "CL-S-3"),
+    room("cl-4", "CL 4", 956, 1200, 1400, 1500, "Classroom", "CL-S-4"),
+    room("stairs", "Stairs", 7200, 2100, 450, 750, "Stairs", "CL-S-STAIRS")
+  ]
+};
 
-const hmFloors: FloorPlan[] = [
-  auxiliaryFloor(1, "HM", [
-    { code: "101", label: "HM 101" },
-    { code: "102", label: "HM 102" },
-  ]),
-  auxiliaryFloor(2, "HM", [
-    { code: "201", label: "HM 201" },
-    { code: "202", label: "HM 202" },
-  ]),
-  auxiliaryFloor(3, "HM", [
-    { code: "301", label: "HM 301" },
-    { code: "302", label: "HM 302" },
-  ]),
-];
+const clNFloor: FloorPlan = {
+  floor: 1,
+  name: "1st Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("cl-5", "CL 5", 5336, 1250, 1400, 1500, "Classroom", "CL-N-5"),
+    room("cl-6", "CL 6", 3876, 1250, 1400, 1500, "Classroom", "CL-N-6"),
+    room("cl-7", "CL 7", 2416, 1250, 1400, 1500, "Classroom", "CL-N-7"),
+    room("cl-8", "CL 8", 956, 1250, 1400, 1500, "Classroom", "CL-N-8"),
+    room("stairs", "Stairs", 7200, 2150, 450, 750, "Stairs", "CL-N-STAIRS")
+  ]
+};
 
+// 4. CTMO (Map 07)
+const ctmoFloor: FloorPlan = {
+  floor: 1,
+  name: "1st Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("ctmo-1", "CTMO 1", 1650, 900, 980, 2300, "Office", "CTMO-1"),
+    room("ctmo-2", "CTMO 2", 2630, 900, 980, 2300, "Office", "CTMO-2"),
+    room("ctmo-3", "CTMO 3", 3610, 900, 980, 2300, "Office", "CTMO-3"),
+    room("ctmo-gad", "GAD & Knowledge Management", 4590, 900, 980, 2300, "Office", "CTMO-GAD"),
+    room("ctmo-res", "Research Dev & Extension", 5570, 900, 980, 2300, "Office", "CTMO-RESEARCH")
+  ]
+};
 
-const clNorthFloors: FloorPlan[] = [
-  auxiliaryFloor(
-    1,
-    "CL-N",
-    [5, 6, 7, 8].map((n) => ({ code: `${n}`, label: `CL ${n}` })),
-  ),
-];
+// 5. HM Building (Maps 09-11)
+function hmFloorPlan(floor: number): FloorPlan {
+  const ordinal = ["", "1st Floor", "2nd Floor", "3rd Floor"][floor];
+  return {
+    floor,
+    name: ordinal,
+    bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+    open: [],
+    rooms: [
+      room("hm-" + floor + "02", "HM " + floor + "02", 1400, 300, 2650, 1900, "Classroom", "HM-" + floor + "-" + floor + "02"),
+      room("hm-" + floor + "01", "HM " + floor + "01", 4150, 300, 2650, 1900, "Classroom", "HM-" + floor + "-" + floor + "01"),
+      room("stairs-" + floor, "Stairs", 5150, 2700, 1600, 1000, "Stairs", "HM-" + floor + "-STAIRS")
+    ]
+  };
+}
 
-
-const clSouthFloors: FloorPlan[] = [
-  auxiliaryFloor(
-    1,
-    "CL-S",
-    [1, 2, 3, 4].map((n) => ({ code: `${n}`, label: `CL ${n}` })),
-  ),
-];
+// 6. Gym Stage Floor (Map 08)
+const gymFloor: FloorPlan = {
+  floor: 1,
+  name: "Stage Floor",
+  bounds: { x: 0, y: 0, w: 8000, h: 4500 },
+  open: [],
+  rooms: [
+    room("stage", "Stage Floor", 2000, 880, 4250, 1400, "Stage", "GYM-STAGE"),
+    room("cr", "CR", 2000, 2750, 1000, 700, "Comfort Room", "GYM-CR"),
+    room("dmst", "Dept of Military Service & Tactics", 3050, 2750, 1000, 700, "Office", "GYM-DMST"),
+    room("osd", "Office of Sports Development", 4100, 2750, 1000, 700, "Office", "GYM-OSD"),
+    room("fitting", "Fitting Room", 5150, 2750, 1000, 700, "Storage", "GYM-FITTING")
+  ]
+};
 
 export const buildings: Building[] = [
   {
     id: "old",
     name: "Old Building",
-    rect: { x: 132, y: 260, w: 80, h: 360 },
-    door: { x: 212, y: 450 },
+    rect: { x: 2380, y: 2508, w: 3412, h: 1224 },
+    door: { x: 3950, y: 3728 },
     entranceId: "OB-1-ENTRANCE",
-    floors: [oldFloor1, oldFloor2],
+    floors: [oldFloor1, oldFloor2_1, oldFloor2_2],
   },
   {
     id: "new",
     name: "New Building",
-    rect: { x: 355, y: 197, w: 107, h: 460 },
-    door: { x: 355, y: 525 },
+    rect: { x: 1784, y: 96, w: 4352, h: 1124 },
+    door: { x: 3960, y: 1220 },
     entranceId: "NB-1-ENTRANCE",
     floors: [
-      newFloor1,
-      newUpperFloor(2, "Education\nDepartment", "Education Department"),
-      newUpperFloor(3, "Office AD\nDepartment", "Office AD Department"),
-      newUpperFloor(4, "DLM C", "DLM C"),
-      newUpperFloor(5, "Social\nDepartment", "Social Department"),
+      nbFloor1,
+      newUpperFloorPlan(2, "Educ Department", "Education Department"),
+      newUpperFloorPlan(3, "Office AD Dept", "Office AD Department"),
+      newUpperFloorPlan(4, "DLMC", "DLMC"),
+      newUpperFloorPlan(5, "Social Dept", "Social Department"),
     ],
   },
   {
     id: "ctmo",
     name: "CTMO",
-    rect: { x: 234, y: 194, w: 59, h: 88 },
-    door: { x: 263, y: 194 },
+    rect: { x: 1748, y: 1740, w: 836, h: 560 },
+    door: { x: 2584, y: 2020 },
     entranceId: "CTMO-ENTRANCE",
-    floors: ctmoFloors,
+    floors: [ctmoFloor],
   },
   {
     id: "hm",
     name: "HM Building",
-    rect: { x: 48, y: 196, w: 45, h: 52 },
-    door: { x: 70, y: 196 },
+    rect: { x: 1620, y: 3872, w: 500, h: 436 },
+    door: { x: 2120, y: 4090 },
     entranceId: "HM-ENTRANCE",
-    floors: hmFloors,
+    floors: [hmFloorPlan(1), hmFloorPlan(2), hmFloorPlan(3)],
   },
   {
     id: "cl-n",
     name: "CL Building (CL 5-8)",
-    rect: { x: 68, y: 478, w: 214, h: 162 },
-    door: { x: 175, y: 478 },
+    rect: { x: 2384, y: 3244, w: 484, h: 488 },
+    door: { x: 2868, y: 3488 },
     entranceId: "CL-N-ENTRANCE",
-    floors: clNorthFloors,
+    floors: [clNFloor],
   },
   {
     id: "cl-s",
     name: "CL Building (CL 1-4)",
-    rect: { x: 68, y: 1393, w: 214, h: 160 },
-    door: { x: 175, y: 1393 },
+    rect: { x: 5300, y: 3248, w: 488, h: 492 },
+    door: { x: 5300, y: 3494 },
     entranceId: "CL-S-ENTRANCE",
-    floors: clSouthFloors,
+    floors: [clSFloor],
+  },
+  {
+    id: "gym",
+    name: "Gymnasium",
+    rect: { x: 2780, y: 1452, w: 2696, h: 900 },
+    door: { x: 5476, y: 1902 },
+    entranceId: "GYM-ENTRANCE",
+    floors: [gymFloor],
   },
 ];
 
@@ -660,45 +366,47 @@ export const buildingById = Object.fromEntries(
 
 export const campusShapes: CampusShape[] = [
   {
-    id: "gate2",
-    label: "Gate 2",
-    x: 115,
-    y: 140,
-    w: 260,
-    h: 25,
-    tone: "mid",
-    type: "Campus gate",
-    nodeId: "Gate 2",
-  },
-  {
     id: "gate1",
     label: "Gate 1",
-    x: 117,
-    y: 694,
-    w: 259,
-    h: 24,
+    x: 6556,
+    y: 952,
+    w: 236,
+    h: 2456,
     tone: "mid",
     type: "Campus gate",
     nodeId: "Gate 1",
+    vertical: true,
+  },
+  {
+    id: "gate2",
+    label: "Gate 2",
+    x: 1236,
+    y: 964,
+    w: 236,
+    h: 2456,
+    tone: "mid",
+    type: "Campus gate",
+    nodeId: "Gate 2",
+    vertical: true,
   },
   {
     id: "cl-n-campus",
-    label: "CL",
-    x: 80,
-    y: 260,
-    w: 52,
-    h: 92,
+    label: "CL 5-8",
+    x: 2384,
+    y: 3244,
+    w: 484,
+    h: 488,
     tone: "dark",
     type: "CL classrooms",
     buildingId: "cl-n",
   },
   {
     id: "cl-s-campus",
-    label: "CL",
-    x: 80,
-    y: 560,
-    w: 52,
-    h: 60,
+    label: "CL 1-4",
+    x: 5300,
+    y: 3248,
+    w: 488,
+    h: 492,
     tone: "dark",
     type: "CL classrooms",
     buildingId: "cl-s",
@@ -706,34 +414,32 @@ export const campusShapes: CampusShape[] = [
   {
     id: "hm",
     label: "HM Bldg.",
-    x: 48,
-    y: 196,
-    w: 45,
-    h: 52,
+    x: 1620,
+    y: 3872,
+    w: 500,
+    h: 436,
     tone: "dark",
     type: "Building",
-    fontSize: 8,
     buildingId: "hm",
   },
   {
-    id: "cr",
+    id: "cr-north",
     label: "CR",
-    x: 105,
-    y: 210,
-    w: 30,
-    h: 23,
+    x: 1604,
+    y: 3352,
+    w: 244,
+    h: 284,
     tone: "soft",
     type: "Comfort room",
-    nodeId: "Comfort room",
-    fontSize: 9,
+    nodeId: "Comfort room north",
   },
   {
     id: "benches",
     label: "Benches",
-    x: 142,
-    y: 197,
-    w: 83,
-    h: 37,
+    x: 1932,
+    y: 2524,
+    w: 352,
+    h: 656,
     tone: "soft",
     type: "Seating area",
     nodeId: "Benches",
@@ -741,72 +447,44 @@ export const campusShapes: CampusShape[] = [
   {
     id: "ctmo",
     label: "CTMO",
-    x: 234,
-    y: 194,
-    w: 59,
-    h: 88,
+    x: 1748,
+    y: 1740,
+    w: 836,
+    h: 560,
     tone: "soft",
-    type: "Office",
+    type: "Building",
     nodeId: "CTMO building",
     buildingId: "ctmo",
   },
   {
-    id: "maintenance",
-    label: "Maintenance",
-    x: 13,
-    y: 318,
-    w: 52,
-    h: 96,
-    tone: "soft",
-    type: "Maintenance room",
-    nodeId: "Maintenance room",
-    vertical: true,
-    fontSize: 10,
-  },
-  {
-    id: "canteen",
-    label: "Canteen",
-    x: 13,
-    y: 458,
-    w: 52,
-    h: 164,
-    tone: "soft",
-    type: "Canteen",
-    nodeId: "Canteen area",
-    vertical: true,
-  },
-  {
     id: "gym",
     label: "Gymnasium",
-    x: 229,
-    y: 303,
-    w: 94,
-    h: 284,
+    x: 2780,
+    y: 1452,
+    w: 2696,
+    h: 900,
     tone: "mid",
     type: "Gymnasium",
     nodeId: "Gymnasium",
-    vertical: true,
-    fontSize: 13,
   },
   {
-    id: "stage",
+    id: "gym-stage",
     label: "Stage",
-    x: 247,
-    y: 546,
-    w: 58,
-    h: 41,
+    x: 5080,
+    y: 1600,
+    w: 400,
+    h: 550,
     tone: "soft",
     type: "Stage",
-    nodeId: "Stage",
-    fontSize: 10,
+    buildingId: "gym",
   },
   {
     id: "smart",
     label: "Smart Room",
-    x: 229,
-    y: 608,
-    w: 96,
-    h: 60,
+    x: 5708,
+    y: 1440,
+    w: 576,
+    h: 908,
     tone: "soft",
     type: "Smart room",
     nodeId: "Smart Room",
@@ -814,12 +492,46 @@ export const campusShapes: CampusShape[] = [
   {
     id: "learning",
     label: "Learning Room",
-    x: 82,
-    y: 638,
-    w: 128,
-    h: 47,
+    x: 6028,
+    y: 2520,
+    w: 456,
+    h: 1220,
     tone: "soft",
     type: "Learning room",
     nodeId: "Learning Room",
+    vertical: true,
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
+    x: 2404,
+    y: 3992,
+    w: 924,
+    h: 488,
+    tone: "soft",
+    type: "Maintenance room",
+    nodeId: "Maintenance room",
+  },
+  {
+    id: "cr-south",
+    label: "CR",
+    x: 3456,
+    y: 4144,
+    w: 604,
+    h: 324,
+    tone: "soft",
+    type: "Comfort room",
+    nodeId: "Comfort room south",
+  },
+  {
+    id: "canteen",
+    label: "Canteen",
+    x: 4252,
+    y: 3988,
+    w: 1560,
+    h: 480,
+    tone: "soft",
+    type: "Canteen",
+    nodeId: "Canteen area",
   },
 ];

@@ -1,0 +1,74 @@
+{
+  "activities": [
+    {
+      "id": "1795484336392-b9iq4f",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-1",
+      "roomName": "CL 1",
+      "checkIn": "2026-11-24T01:38:56.392Z",
+      "checkOut": "2026-11-24T01:39:38.978Z",
+      "durationMinutes": 1,
+      "status": "complete"
+    },
+    {
+      "id": "1795484378980-777y25",
+      "professor": "Demo Professor",
+      "nodeId": "Smart Room",
+      "roomName": "Smart Room",
+      "checkIn": "2026-11-24T01:39:38.980Z",
+      "checkOut": "2026-11-24T01:39:44.712Z",
+      "durationMinutes": 0,
+      "status": "complete"
+    },
+    {
+      "id": "1795484384713-yaaxj2",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-3",
+      "roomName": "CL 3",
+      "checkIn": "2026-11-24T01:39:44.713Z",
+      "checkOut": "2026-11-24T01:39:47.256Z",
+      "durationMinutes": 0,
+      "status": "complete"
+    },
+    {
+      "id": "1795484387258-r6zb06",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-2",
+      "roomName": "CL 2",
+      "checkIn": "2026-11-24T01:39:47.258Z",
+      "checkOut": "2026-11-24T01:39:47.903Z",
+      "durationMinutes": 0,
+      "status": "complete"
+    },
+    {
+      "id": "1795484387905-f0w5b2",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-3",
+      "roomName": "CL 3",
+      "checkIn": "2026-11-24T01:39:47.905Z",
+      "checkOut": "2026-11-24T01:39:48.471Z",
+      "durationMinutes": 0,
+      "status": "complete"
+    },
+    {
+      "id": "1795484388473-1n731y",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-2",
+      "roomName": "CL 2",
+      "checkIn": "2026-11-24T01:39:48.473Z",
+      "checkOut": "2026-11-24T01:39:49.210Z",
+      "durationMinutes": 0,
+      "status": "complete"
+    },
+    {
+      "id": "1795484389212-v330cd",
+      "professor": "Demo Professor",
+      "nodeId": "CL-S-3",
+      "roomName": "CL 3",
+      "checkIn": "2026-11-24T01:39:49.212Z",
+      "checkOut": null,
+      "durationMinutes": null,
+      "status": "incomplete"
+    }
+  ]
+}

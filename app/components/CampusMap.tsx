@@ -9,15 +9,16 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import styles from "./CampusMap.module.css";
-import campusMap01 from "../assets/campus-map-01.png";
-import campusMap02 from "../assets/campus-map-02.png";
-import campusMap03 from "../assets/campus-map-03.png";
-import campusMap09 from "../assets/campus-map-09.png";
-import campusMap10 from "../assets/campus-map-10.png";
-import campusMap11 from "../assets/campus-map-11.png";
-import campusMap12 from "../assets/campus-map-12.png";
-import campusMap13 from "../assets/campus-map-13.png";
-import campusMap14 from "../assets/campus-map-14.png";
+import campusMap01 from "../assets/ATLAS-map-01.png";
+import campusMap02 from "../assets/ATLAS-map-02.png";
+import campusMap03 from "../assets/ATLAS-map-03.png";
+import campusMap05 from "../assets/ATLAS-map-05.png";
+import campusMap06 from "../assets/ATLAS-map-06.png";
+import campusMap07 from "../assets/ATLAS-map-07.png";
+import campusMap08 from "../assets/ATLAS-map-08.png";
+import campusMap09 from "../assets/ATLAS-map-09.png";
+import campusMap10 from "../assets/ATLAS-map-10.png";
+import campusMap11 from "../assets/ATLAS-map-11.png";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph, routingNodeById } from "@/lib/routingGraph";
 import { findShortestPath } from "@/lib/pathfinding";
@@ -68,28 +69,6 @@ const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
   "cl-s": { x: 132, y: 590 },
 };
 
-type ClIndicatorPoint = {
-  mapX: number;
-  mapY: number;
-  displayX: number;
-  displayY: number;
-};
-
-const clIndicatorPoints: Record<"cl-n" | "cl-s", ClIndicatorPoint> = {
-  "cl-s": {
-    mapX: 148.8,
-    mapY: 907.7,
-    displayX: 457.3,
-    displayY: 148.8,
-  },
-  "cl-n": {
-    mapX: 148.2,
-    mapY: 397.7,
-    displayX: 967.3,
-    displayY: 148.2,
-  },
-};
-
 function clExitForNode(id: string): Pt | null {
   if (
     id.startsWith("CL-N-") ||
@@ -112,14 +91,15 @@ const indoorImages: Record<
   string,
   { src: string; width: number; height: number; rotate?: boolean }
 > = {
-  "old-1": { src: campusMap02.src, width: 768, height: 1365, rotate: true },
-  "old-2": { src: campusMap03.src, width: 768, height: 1365, rotate: true },
-  ctmo: { src: campusMap09.src, width: 768, height: 1365 },
-  "cl-n": { src: campusMap11.src, width: 768, height: 1365 },
-  "cl-s": { src: campusMap10.src, width: 768, height: 1365 },
-  "hm-1": { src: campusMap12.src, width: 768, height: 1365 },
-  "hm-2": { src: campusMap13.src, width: 768, height: 1365 },
-  "hm-3": { src: campusMap14.src, width: 768, height: 1365 },
+  "old-1": { src: campusMap02.src, width: 1365, height: 768 },
+  "old-2": { src: campusMap03.src, width: 1365, height: 768 },
+  ctmo: { src: campusMap07.src, width: 1365, height: 768 },
+  gym: { src: campusMap08.src, width: 1365, height: 768 },
+  "cl-n": { src: campusMap06.src, width: 1365, height: 768 },
+  "cl-s": { src: campusMap05.src, width: 1365, height: 768 },
+  "hm-1": { src: campusMap09.src, width: 1365, height: 768 },
+  "hm-2": { src: campusMap10.src, width: 1365, height: 768 },
+  "hm-3": { src: campusMap11.src, width: 1365, height: 768 },
 };
 
 function rotateOldRect(rect: Rect): Rect {
@@ -131,38 +111,98 @@ function rotateOldRect(rect: Rect): Rect {
   };
 }
 
+function hotspotRect(
+  xPercent: number,
+  yPercent: number,
+  widthPercent: number,
+  heightPercent: number,
+  mapWidth = 1365,
+  mapHeight = 768,
+): Rect {
+  return {
+    x: (xPercent / 100) * mapWidth,
+    y: (yPercent / 100) * mapHeight,
+    w: (widthPercent / 100) * mapWidth,
+    h: (heightPercent / 100) * mapHeight,
+  };
+}
+
 function imageRoomRect(
   buildingId: BuildingId,
   floorNumber: number,
   roomId: string,
 ): Rect | null {
   if (buildingId === "ctmo") {
-    const y: Record<string, number> = {
-      "1-1": 963,
-      "1-2": 771,
-      "1-3": 580,
-      "1-GAD": 388,
-      "1-RESEARCH": 196,
+    const xPercent: Record<string, number> = {
+      "ctmo-1": 13.7,
+      "ctmo-2": 28.4,
+      "ctmo-3": 43.0,
+      "ctmo-gad": 57.6,
+      "ctmo-res": 72.2,
     };
-    const top = y[roomId];
-    return top === undefined ? null : { x: 160, y: top, w: 445, h: 190 };
+    return xPercent[roomId] === undefined
+      ? null
+      : hotspotRect(xPercent[roomId], 19.7, 14.1, 58.0);
   }
   if (buildingId === "cl-n" || buildingId === "cl-s") {
+    if (roomId === "stairs") {
+      return hotspotRect(
+        buildingId === "cl-n" ? 92.3 : 92.7,
+        46.9,
+        6.6,
+        18.9,
+      );
+    }
     const start = buildingId === "cl-n" ? 5 : 1;
     const roomNumber = Number(roomId.split("-").pop());
     if (!Number.isInteger(roomNumber)) return null;
     const index = roomNumber - start;
-    return {
-      x: buildingId === "cl-n" ? 193 : 385,
-      y: 852 - index * 220,
-      w: 232,
-      h: 215,
-    };
+    const xPercent =
+      (buildingId === "cl-n" ? 3.6 : 4.1) + (3 - index) * 20.9;
+    return hotspotRect(xPercent, 26.6, 20.0, 38.3);
   }
   if (buildingId === "hm" && floorNumber >= 1 && floorNumber <= 3) {
+    if (roomId === `stairs-${floorNumber}`) {
+      const stairCoordinates: Record<number, [number, number]> = {
+        1: [65.3, 60.7],
+        2: [66.4, 67.8],
+        3: [64.9, 67.8],
+      };
+      return hotspotRect(
+        stairCoordinates[floorNumber][0],
+        stairCoordinates[floorNumber][1],
+        23.2,
+        25.8,
+      );
+    }
     const number = Number(roomId.split("-").pop());
     const index = (number % 100) - 1;
-    return { x: 163, y: index === 0 ? 344 : 678, w: 232, h: 334 };
+    const floorCoordinates: Record<
+      number,
+      { left: number; right: number; y: number }
+    > = {
+      1: { left: 10.0, right: 50.3, y: 6.9 },
+      2: { left: 11.2, right: 51.4, y: 14.1 },
+      3: { left: 9.6, right: 49.7, y: 14.1 },
+    };
+    const coordinates = floorCoordinates[floorNumber];
+    return hotspotRect(
+      index === 0 ? coordinates.right : coordinates.left,
+      coordinates.y,
+      38.8,
+      47.7,
+    );
+  }
+  if (buildingId === "gym") {
+    const gymRooms: Record<string, [number, number, number, number]> = {
+      stage: [15.0, 20.0, 70.0, 38.0],
+      cr: [16.0, 69.0, 16.0, 18.0],
+      dmst: [32.0, 69.0, 18.0, 18.0],
+      osd: [50.0, 69.0, 18.0, 18.0],
+      fitting: [68.0, 69.0, 16.0, 18.0],
+    };
+    const rect = gymRooms[roomId];
+    return rect ? hotspotRect(rect[0], rect[1], rect[2], rect[3]) : null;
   }
   if (
     buildingId === "old" &&
@@ -237,12 +277,19 @@ function shortName(name: string): string {
   return name.replace(/ \((New|Old) Building\)$/, "");
 }
 
-
-
-
+function scaleOldRect(rect: Rect): Rect {
+  return {
+    x: (rect.x / 8000) * 1365,
+    y: (rect.y / 4500) * 768,
+    w: (rect.w / 8000) * 1365,
+    h: (rect.h / 4500) * 768,
+  };
+}
 
 function nodePoint(buildingId: BuildingId, x: number, y: number): Pt {
-  if (buildingId === "old") return { x: 1365 - y, y: x };
+  if (buildingId === "old") {
+    return { x: (x / 8000) * 1365, y: (y / 4500) * 768 };
+  }
   if (buildingId === "new") return planPoint(x, y);
   return { x, y };
 }
@@ -252,48 +299,6 @@ function isSelectableNode(id: string): boolean {
   return !!n && (n.kind === "entrance" || n.kind === "gate");
 }
 
-interface LocationInfo {
-  id: string;
-  name: string;
-  type: string;
-  department?: string;
-  building?: BuildingId;
-  buildingName?: string;
-  floor?: number;
-  floorName?: string;
-  claimable?: boolean;
-}
-
-function describeNode(id: string): LocationInfo | null {
-  const node = nodeById.get(id);
-  if (!node) return null;
-  const b = buildingOfNode(id);
-
-  if (b) {
-    const building = buildingById[b];
-    const plan = building.floors.find((f) => f.floor === node.floor);
-    const room = plan?.rooms.find((r) => r.nodeId === id);
-    return {
-      id,
-      name: shortName(node.name),
-      type:
-        room?.type ?? (node.kind === "gate" ? "Building entrance" : "Location"),
-      department: room?.department,
-      building: b,
-      buildingName: building.name,
-      floor: node.floor,
-      floorName: plan?.name,
-      claimable: node.claimable,
-    };
-  }
-
-  const shape = campusShapes.find((s) => s.nodeId === id);
-  return {
-    id,
-    name: node.name,
-    type: shape?.type ?? (node.kind === "gate" ? "Campus gate" : "Location"),
-  };
-}
 
 export const selectGroups = (() => {
   const groups: { label: string; options: { id: string; name: string }[] }[] =
@@ -426,6 +431,13 @@ export default function CampusMap({
   const setDestId = onDestChange ?? setDestState;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [claims, setClaims] = useState<Record<string, string>>({});
+  const [roomNames, setRoomNames] = useState<Record<string, string>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [roomEditingMode, setRoomEditingMode] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomName, setEditingRoomName] = useState("");
+  const [editingRoomOriginalName, setEditingRoomOriginalName] = useState("");
+  const [roomNameError, setRoomNameError] = useState("");
   const [builderMode, setBuilderMode] = useState(false);
   const [builderPoints, setBuilderPoints] = useState<BuilderPoint[]>([]);
   const [builderCursor, setBuilderCursor] = useState<
@@ -490,6 +502,14 @@ export default function CampusMap({
 
   useEffect(() => {
     let cancelled = false;
+    fetch("/api/teacher/session")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setIsAdmin(data.admin === true);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
     fetch("/api/rooms/claim")
       .then((r) => r.json())
       .then((data) => {
@@ -501,6 +521,11 @@ export default function CampusMap({
           },
         );
         setClaims(next);
+        setRoomNames(
+          data.roomNames && typeof data.roomNames === "object"
+            ? data.roomNames
+            : {},
+        );
       })
       .catch(() => {});
     return () => {
@@ -522,7 +547,23 @@ export default function CampusMap({
   const route = useMemo(() => {
     if (!startId || !destId) return null;
     if (!nodeById.has(startId) || !nodeById.has(destId)) return null;
-    return findShortestPath(routingGraph, startId, destId);
+    const startBuilding = buildingOfNode(startId);
+    const destinationBuilding = buildingOfNode(destId);
+    const sameBuilding =
+      startBuilding !== null && startBuilding === destinationBuilding;
+    const graph = sameBuilding
+      ? {
+          nodes: routingGraph.nodes.filter(
+            (node) => buildingOfNode(node.id) === startBuilding,
+          ),
+          edges: routingGraph.edges.filter(
+            (edge) =>
+              buildingOfNode(edge.from) === startBuilding &&
+              buildingOfNode(edge.to) === startBuilding,
+          ),
+        }
+      : routingGraph;
+    return findShortestPath(graph, startId, destId);
   }, [startId, destId]);
 
   const routeIds = useMemo(() => route?.path ?? [], [route]);
@@ -556,25 +597,41 @@ export default function CampusMap({
   }, [routeIds]);
 
   const campusRoute = useMemo(() => {
+    const startBuilding = startId ? buildingOfNode(startId) : null;
+    const destinationBuilding = destId ? buildingOfNode(destId) : null;
+    if (
+      startBuilding !== null &&
+      startBuilding === destinationBuilding
+    ) {
+      return [];
+    }
+
     const pts: Pt[] = [];
-    const push = (p: Pt) => {
+    let lastLocationKey: string | null = null;
+    const push = (key: string, p: Pt) => {
       const last = pts[pts.length - 1];
-      if (!last || last.x !== p.x || last.y !== p.y) pts.push(p);
+      if (
+        !last ||
+        lastLocationKey !== key ||
+        last.x !== p.x ||
+        last.y !== p.y
+      ) {
+        pts.push(p);
+        lastLocationKey = key;
+      }
     };
     routeIds.forEach((id) => {
       const n = nodeById.get(id);
       if (!n) return;
-      const clExit = clExitForNode(id);
-      if (clExit) {
-        push(clExit);
-        return;
-      }
       const b = buildingOfNode(id);
-      if (b) push(buildingById[b].door);
-      else push({ x: n.x, y: n.y });
+      if (b) {
+        push(`building:${b}`, buildingById[b].door);
+      } else {
+        push(`outside:${id}`, { x: n.x, y: n.y });
+      }
     });
     return pts;
-  }, [routeIds]);
+  }, [routeIds, startId, destId]);
 
   const indoorRoute = useMemo(() => {
     const lines: Pt[][] = [];
@@ -663,7 +720,6 @@ export default function CampusMap({
   }, [route, legs, onRoute]);
 
   const hasPins = !!startId || !!destId;
-  const selected = selectedId ? describeNode(selectedId) : null;
   const building = buildingById[buildingId];
   const plan =
     building.floors.find((f) => f.floor === floor) ?? building.floors[0];
@@ -721,6 +777,85 @@ export default function CampusMap({
     if (isSelectableNode(id)) pick(id);
   };
 
+  const beginRoomNameEdit = (room: PlanRoom) => {
+    if (!isAdmin || !roomEditingMode || !room.nodeId) return;
+    if (editingRoomId && editingRoomId !== room.nodeId) {
+      if (
+        editingRoomName !== editingRoomOriginalName &&
+        !window.confirm("Discard unsaved room name changes?")
+      ) {
+        return;
+      }
+    }
+    const name =
+      roomNames[room.nodeId] ?? room.label.replace(/\n/g, " ");
+    setEditingRoomId(room.nodeId);
+    setEditingRoomName(name);
+    setEditingRoomOriginalName(name);
+    setRoomNameError("");
+  };
+
+  const cancelRoomNameEdit = useCallback(() => {
+    setEditingRoomId(null);
+    setEditingRoomName("");
+    setEditingRoomOriginalName("");
+    setRoomNameError("");
+  }, []);
+
+  const exitRoomEditingMode = useCallback((): boolean => {
+    if (
+      editingRoomName !== editingRoomOriginalName &&
+      editingRoomId &&
+      !window.confirm("You have unsaved room name changes. Leave editing mode?")
+    ) {
+      return false;
+    }
+    cancelRoomNameEdit();
+    setRoomEditingMode(false);
+    return true;
+  }, [
+    cancelRoomNameEdit,
+    editingRoomId,
+    editingRoomName,
+    editingRoomOriginalName,
+  ]);
+
+  useEffect(() => {
+    if (!roomEditingMode) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      exitRoomEditingMode();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    roomEditingMode,
+    exitRoomEditingMode,
+  ]);
+
+  const saveRoomNameEdit = async () => {
+    if (!editingRoomId) return;
+    const name = editingRoomName.trim();
+    if (!name) {
+      setRoomNameError("Room name cannot be empty.");
+      return;
+    }
+    const response = await fetch("/api/admin/dashboard", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nodeId: editingRoomId, name }),
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setRoomNameError(data.error ?? "Could not save room name.");
+      return;
+    }
+    setRoomNames((current) => ({ ...current, [editingRoomId]: name }));
+    setEditingRoomOriginalName(name);
+    cancelRoomNameEdit();
+  };
+
   useEffect(() => {
     onSelect?.(selectedId);
   }, [selectedId, onSelect]);
@@ -763,12 +898,9 @@ export default function CampusMap({
       displayX = viewBox.x + (event.clientX - bounds.left - offsetX) / scale;
       displayY = viewBox.y + (event.clientY - bounds.top - offsetY) / scale;
     }
-    const isOldImage = buildingId === "old" && !!indoorImage?.rotate;
-    const x = isOldImage ? displayY : displayX;
-    const y = isOldImage ? (indoorImage?.height ?? 1365) - displayX : displayY;
     return {
-      x: Number(x.toFixed(1)),
-      y: Number(y.toFixed(1)),
+      x: Number(displayX.toFixed(1)),
+      y: Number(displayY.toFixed(1)),
       displayX: Number(displayX.toFixed(1)),
       displayY: Number(displayY.toFixed(1)),
     };
@@ -980,6 +1112,13 @@ export default function CampusMap({
                 .map((b) => {
                   const cx = b.rect.x + b.rect.w / 2;
                   const cy = b.rect.y + b.rect.h / 2;
+                  const hitRects =
+                    b.id === "old"
+                      ? [
+                          { x: 2380, y: 2508, w: 3412, h: 736 },
+                          { x: 2868, y: 3244, w: 2432, h: 488 },
+                        ]
+                      : [b.rect];
                   return (
                     <g
                       key={b.id}
@@ -998,14 +1137,17 @@ export default function CampusMap({
                         }
                       }}
                     >
-                      <rect
-                        x={b.rect.x}
-                        y={b.rect.y}
-                        width={b.rect.w}
-                        height={b.rect.h}
-                        rx={4}
-                        className={styles.imageHitbox}
-                      />
+                      {hitRects.map((rect, index) => (
+                        <rect
+                          key={`${b.id}-hitbox-${index}`}
+                          x={rect.x}
+                          y={rect.y}
+                          width={rect.w}
+                          height={rect.h}
+                          rx={4}
+                          className={styles.imageHitbox}
+                        />
+                      ))}
                       <text
                         x={cx}
                         y={cy - 10}
@@ -1194,11 +1336,19 @@ export default function CampusMap({
                 })}
 
                 {plan.rooms.map((room: PlanRoom) => {
-                  const r =
-                    imageRoomRect(buildingId, floor, room.id) ??
-                    (indoorImage ? null : planRect(room));
+                  const r = indoorImage
+                    ? buildingId === "old"
+                      ? scaleOldRect(room)
+                      : imageRoomRect(buildingId, floor, room.id)
+                    : planRect(room);
                   if (!r) return null;
-                  const lines = room.label ? room.label.split("\n") : [];
+                  const displayRoomName =
+                    room.nodeId && roomNames[room.nodeId]
+                      ? roomNames[room.nodeId]
+                      : room.label;
+                  const lines = displayRoomName
+                    ? displayRoomName.split("\n")
+                    : [];
                   const longest = Math.max(1, ...lines.map((l) => l.length));
                   const fs = Math.max(
                     18,
@@ -1234,8 +1384,15 @@ export default function CampusMap({
                       key={room.id}
                       onClick={() => {
                         if (builderMode) return;
+                        if (isAdmin && roomEditingMode && room.nodeId) {
+                          beginRoomNameEdit(room);
+                          return;
+                        }
                         if (room.openBuildingId) {
-                          enterBuilding(room.openBuildingId);
+                          enterBuilding(
+                            room.openBuildingId,
+                            room.openFloor ?? 1,
+                          );
                         } else if (room.nodeId) {
                           selectNode(room.nodeId);
                         }
@@ -1244,7 +1401,7 @@ export default function CampusMap({
                       tabIndex={selectable ? 0 : undefined}
                       aria-label={
                         selectable
-                          ? `${room.label.replace("\n", " ")}, select`
+                          ? `${displayRoomName.replace("\n", " ")}, select`
                           : undefined
                       }
                       onKeyDown={(e) => {
@@ -1254,8 +1411,15 @@ export default function CampusMap({
                           (e.key === "Enter" || e.key === " ")
                         ) {
                           e.preventDefault();
+                          if (isAdmin && roomEditingMode && room.nodeId) {
+                            beginRoomNameEdit(room);
+                            return;
+                          }
                           if (room.openBuildingId) {
-                            enterBuilding(room.openBuildingId);
+                            enterBuilding(
+                              room.openBuildingId,
+                              room.openFloor ?? 1,
+                            );
                           } else {
                             selectNode(room.nodeId);
                           }
@@ -1270,6 +1434,87 @@ export default function CampusMap({
                         rx={6}
                         className={cls}
                       />
+                      {isAdmin &&
+                        editingRoomId === room.nodeId &&
+                        room.nodeId && (
+                          <foreignObject
+                            x={r.x + r.w * 0.08}
+                            y={r.y + r.h * 0.28}
+                            width={r.w * 0.84}
+                            height={Math.max(64, r.h * 0.44)}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 4,
+                                padding: 6,
+                                borderRadius: 8,
+                                background: "rgba(255,255,255,0.96)",
+                                boxShadow: "0 4px 16px rgba(15,23,42,0.25)",
+                              }}
+                            >
+                              <input
+                                value={editingRoomName}
+                                onChange={(event) =>
+                                  setEditingRoomName(event.target.value)
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") saveRoomNameEdit();
+                                  if (event.key === "Escape") cancelRoomNameEdit();
+                                }}
+                                autoFocus
+                                style={{
+                                  width: "100%",
+                                  border: "1px solid #cbd5e1",
+                                  borderRadius: 6,
+                                  padding: "6px 8px",
+                                  fontSize: 14,
+                                }}
+                                aria-label="Room name"
+                              />
+                              <div style={{ display: "flex", gap: 4 }}>
+                                <button
+                                  type="button"
+                                  onClick={saveRoomNameEdit}
+                                  style={{
+                                    flex: 1,
+                                    border: 0,
+                                    borderRadius: 6,
+                                    background: "#2433c4",
+                                    color: "#fff",
+                                    padding: "5px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelRoomNameEdit}
+                                  style={{
+                                    flex: 1,
+                                    border: "1px solid #cbd5e1",
+                                    borderRadius: 6,
+                                    background: "#fff",
+                                    color: "#334155",
+                                    padding: "5px",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                              {roomNameError && (
+                                <span
+                                  style={{ color: "#dc2626", fontSize: 11 }}
+                                >
+                                  {roomNameError}
+                                </span>
+                              )}
+                            </div>
+                          </foreignObject>
+                        )}
                       {lines.map((line, i) => (
                         <text
                           key={i}
@@ -1280,7 +1525,9 @@ export default function CampusMap({
                           dominantBaseline="central"
                           className={
                             indoorImage
-                              ? styles.imageLabelHidden
+                              ? roomNames[room.nodeId ?? ""]
+                                ? styles.roomNameOverlay
+                                : styles.imageLabelHidden
                               : room.placeholder
                                 ? styles.labelMuted
                                 : styles.label
@@ -1289,9 +1536,9 @@ export default function CampusMap({
                           {line}
                         </text>
                       ))}
-                      {room.label && (
+                      {displayRoomName && (
                         <title>
-                          {room.label.replace("\n", " ")}
+                          {displayRoomName.replace("\n", " ")}
                           {room.nodeId && nodeById.get(room.nodeId)?.claimable
                             ? ` - ${claims[room.nodeId] ? "Occupied" : "Available"}`
                             : ""}
@@ -1346,51 +1593,6 @@ export default function CampusMap({
                     />
                   ) : null,
                 )}
-
-                {buildingId === "old" && floor === 1 &&
-                  (["cl-s", "cl-n"] as const).map((id) => {
-                    const point = clIndicatorPoints[id];
-                    return (
-                      <g
-                        key={`cl-indicator-${id}`}
-                        className={styles.clRoomIndicator}
-                        transform={`translate(${point.displayX} ${point.displayY})`}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={
-                          id === "cl-s"
-                            ? "Open CL Rooms 1–4"
-                            : "Open CL Rooms 5–8"
-                        }
-                        onClick={() => {
-                          if (!builderMode) {
-                            setBuildingId(id);
-                            setFloor(1);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (
-                            !builderMode &&
-                            (e.key === "Enter" || e.key === " ")
-                          ) {
-                            e.preventDefault();
-                            setBuildingId(id);
-                            setFloor(1);
-                          }
-                        }}
-                      >
-                        <circle r={18} />
-                        <text y={2.8} textAnchor="middle">
-                          {id === "cl-s" ? "1–4" : "5–8"}
-                        </text>
-                        <title>
-                          {id === "cl-s"
-                            ? "Open CL Rooms 1–4"
-                            : "Open CL Rooms 5–8"}
-                        </title>
-                      </g>
-                    );
-                  })}
 
                 {builderMode &&
                   builderPoints
@@ -1453,21 +1655,38 @@ export default function CampusMap({
               <button
                 type="button"
                 className={styles.backBtn}
-                onClick={backToCampus}
+                onClick={() => {
+                  if (roomEditingMode && !exitRoomEditingMode()) return;
+                  backToCampus();
+                }}
               >
                 <span aria-hidden="true">&larr;</span> Back to Campus Overview
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  className={styles.backBtn}
+                  style={{ top: 112 }}
+                  onClick={() => {
+                    if (roomEditingMode) exitRoomEditingMode();
+                    else setRoomEditingMode(true);
+                  }}
+                >
+                  {roomEditingMode ? "Exit Name Editing" : "Edit Room Names"}
+                </button>
+              )}
               {(buildingId === "cl-n" || buildingId === "cl-s") && (
                 <button
                   type="button"
                   className={styles.backBtn}
                   style={{ top: 56 }}
                   onClick={() => {
+                    if (roomEditingMode && !exitRoomEditingMode()) return;
                     setBuildingId("old");
                     setFloor(2);
                   }}
                 >
-                  <span aria-hidden="true">&larr;</span> Old Building, 2nd Floor
+                  <span aria-hidden="true">&larr;</span> Old Building, 2.1F
                 </button>
               )}
               <div
@@ -1481,13 +1700,33 @@ export default function CampusMap({
                     <button
                       key={f.floor}
                       type="button"
-                      className={`${styles.floorBtn} ${f.floor === floor ? styles.floorActive : ""}`}
+                      className={`${styles.floorBtn} ${buildingId === "old" ? styles.floorBtnWide : ""} ${f.floor === floor ? styles.floorActive : ""}`}
                       aria-pressed={f.floor === floor}
                       aria-label={f.name}
                       title={f.name}
-                      onClick={() => setFloor(f.floor)}
+                      onClick={() => {
+                        if (
+                          roomEditingMode &&
+                          editingRoomName !== editingRoomOriginalName &&
+                          editingRoomId &&
+                          !window.confirm(
+                            "You have unsaved room name changes. Change floor?",
+                          )
+                        ) {
+                          return;
+                        }
+                        setFloor(f.floor);
+                      }}
                     >
-                      {f.floor}F
+                      {buildingId === "old"
+                        ? f.floor === 1
+                          ? "1F"
+                          : f.floor === 2
+                            ? "2.1F"
+                            : f.floor === 3
+                              ? "2.2F"
+                              : `${f.floor}F`
+                        : `${f.floor}F`}
                     </button>
                   ))}
               </div>
@@ -1618,68 +1857,6 @@ export default function CampusMap({
                 </p>
               )}
             </section>
-
-            {selected && (
-              <section className={styles.card}>
-                <h2 className={styles.cardTitle}>{selected.name}</h2>
-                <dl className={styles.info}>
-                  <dt>Type</dt>
-                  <dd>{selected.type}</dd>
-                  {selected.department && (
-                    <>
-                      <dt>Department or office</dt>
-                      <dd>{selected.department}</dd>
-                    </>
-                  )}
-                  <dt>Location</dt>
-                  <dd>
-                    {selected.buildingName
-                      ? `${selected.buildingName}${selected.floorName ? `, ${selected.floorName}` : ""}`
-                      : "Campus grounds"}
-                  </dd>
-                  {claims[selected.id] && (
-                    <>
-                      <dt>Claimed by</dt>
-                      <dd>{claims[selected.id]}</dd>
-                    </>
-                  )}
-                  {selected.claimable && (
-                    <>
-                      <dt>Availability</dt>
-                      <dd>{claims[selected.id] ? "Occupied" : "Available"}</dd>
-                    </>
-                  )}
-                </dl>
-                <div className={styles.rowBtns}>
-                  <button
-                    type="button"
-                    className={`${styles.primaryBtn} ${styles.startBtn}`}
-                    onClick={() => setStartId(selected.id)}
-                  >
-                    Set as start
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.primaryBtn} ${styles.destBtn}`}
-                    onClick={() => setDestId(selected.id)}
-                  >
-                    Set as destination
-                  </button>
-                </div>
-                {selected.building &&
-                  (phase === "campus" || phase === "building") && (
-                    <button
-                      type="button"
-                      className={styles.linkBtn}
-                      onClick={() =>
-                        showLocation(selected.building ?? null, selected.floor)
-                      }
-                    >
-                      Show on floor plan
-                    </button>
-                  )}
-              </section>
-            )}
           </aside>
         )}
       </div>

@@ -27,6 +27,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Wrong name or PIN." }, { status: 401 });
 
   const response = NextResponse.json({ teacher });
-  attachSession(response, teacher);
+  attachSession(response, teacher, typeof name === "string" ? name.trim().toLowerCase() : undefined);
   return response;
 }

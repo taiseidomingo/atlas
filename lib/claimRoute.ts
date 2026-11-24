@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeacher } from "./auth";
+import { getProfessorIdentity, getTeacher, isAdmin } from "./auth";
 import { claimRoom, listReservations, releaseRoom } from "./reservation";
+import { listRenamedRoomNames } from "./roomAdmin";
 
 export async function GET() {
-  return NextResponse.json({ reservations: listReservations() });
+  return NextResponse.json({
+    reservations: listReservations(),
+    roomNames: listRenamedRoomNames(),
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -13,13 +17,24 @@ export async function POST(request: NextRequest) {
       { error: "Please log in as a teacher." },
       { status: 401 },
     );
+  if (isAdmin(teacher)) {
+    return NextResponse.json(
+      { error: "Admin accounts cannot claim rooms." },
+      { status: 403 },
+    );
+  }
 
   const { nodeId } = await request.json().catch(() => ({}));
   if (typeof nodeId !== "string" || !nodeId) {
     return NextResponse.json({ error: "nodeId is required" }, { status: 400 });
   }
 
-  const result = claimRoom(nodeId, teacher);
+  const identity = getProfessorIdentity(request);
+  const result = claimRoom(
+    nodeId,
+    teacher,
+    identity?.id ?? teacher.trim().toLowerCase(),
+  );
   if (result.ok) return NextResponse.json({ reservation: result.reservation });
   if (result.reason === "not_found")
     return NextResponse.json({ error: "Room not found" }, { status: 404 });
@@ -42,6 +57,12 @@ export async function DELETE(request: NextRequest) {
       { error: "Please log in as a teacher." },
       { status: 401 },
     );
+  if (isAdmin(teacher)) {
+    return NextResponse.json(
+      { error: "Admin accounts cannot manage room claims." },
+      { status: 403 },
+    );
+  }
 
   const { nodeId } = await request.json().catch(() => ({}));
   const outcome = releaseRoom(nodeId, teacher);
