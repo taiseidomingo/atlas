@@ -6,12 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dev:host": "next dev -H 0.0.0.0",
+    "cap:sync": "node scripts/write-www-config.mjs && cap sync",
+    "cap:sync:prod": "CAP_TARGET=prod node scripts/write-www-config.mjs && CAP_TARGET=prod cap sync",
+    "cap:assets": "capacitor-assets generate --android --ios",
+    "android:add": "cap add android && node scripts/android-setup.mjs && npm run cap:assets && npm run cap:sync",
+    "android:open": "cap open android",
+    "android:apk": "CAP_TARGET=prod node scripts/write-www-config.mjs && CAP_TARGET=prod cap sync android && cd android && ./gradlew assembleRelease",
+    "android:aab": "CAP_TARGET=prod node scripts/write-www-config.mjs && CAP_TARGET=prod cap sync android && cd android && ./gradlew bundleRelease",
+    "android:apk:debug": "node scripts/write-www-config.mjs && cap sync android && cd android && ./gradlew assembleDebug",
+    "ios:add": "cap add ios && npm run cap:assets && npm run cap:sync",
+    "ios:open": "cap open ios"
   },
   "dependencies": {
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "@capacitor/android": "^7.4.0",
+    "@capacitor/core": "^7.4.0",
+    "@capacitor/ios": "^7.4.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +37,11 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@capacitor/cli": "^7.4.0",
+    "@capacitor/assets": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

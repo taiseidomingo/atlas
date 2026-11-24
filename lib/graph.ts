@@ -92,7 +92,7 @@ function buildCampusGraph(): CampusGraph {
     });
   }
 
-  // 1. Process all maps
+
   processMap("01", "CAMPUS", 1);
   processMap("02", "OB-1", 1, [[23, 62, 5.0]]);
   processMap("03", "OB-2", 2);
@@ -143,7 +143,7 @@ function buildCampusGraph(): CampusGraph {
     }
   }
 
-  // 2. Campus Outdoor Places & Gates
+
   const campusPlaces: GraphNode[] = [
     { id: "Gate 1", name: "Gate 1", x: 6556, y: 2400, kind: "gate", floor: 1 },
     { id: "Gate 2", name: "Gate 2", x: 1236, y: 2400, kind: "gate", floor: 1 },
@@ -174,7 +174,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(p.id, "CAMPUS", p.x, p.y);
   });
 
-  // Outdoor to indoor connections
+
   addEdge("NB-1-ENTRANCE", "CAMPUS-DOT-1", 5.0);
   linkToClosestDot("NB-1-ENTRANCE", "NB-1", 3960, 2228, 5.0);
 
@@ -196,8 +196,8 @@ function buildCampusGraph(): CampusGraph {
   linkToClosestDot("GYM-ENTRANCE", "CAMPUS", 5476, 1902, 5.0);
   linkToClosestDot("GYM-ENTRANCE", "GYM-1", 4125, 2750, 5.0);
 
-  // 3. Indoor Rooms
-  // Map 02 (Old Building 1F) Rooms
+
+
   const ob1Rooms = [
     { id: "OB-1-HM", name: "HM LAB", x: 3974, y: 632, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3974, doorY: 1250 },
     { id: "OB-1-HM-STOCK", name: "Hospitality Management Stockroom", x: 2574, y: 644, floor: 1, kind: "entrance" as const, doorX: 2574, doorY: 1250 },
@@ -245,7 +245,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "OB-1", r.doorX, r.doorY);
   });
 
-  // Map 03 (Old Building 2.1F) Rooms
+
   const ob2Rooms = [
     { id: "OB-2.1-CURVE-STAIRS", name: "Curved Stairs to 1st Floor", x: 2600, y: 2200, floor: 2, kind: "gate" as const, doorX: 2500, doorY: 2274 },
     { id: "OB-2.1-CSG", name: "CSG Office", x: 1026, y: 2749, floor: 2, kind: "entrance" as const, claimable: true, doorX: 1190, doorY: 2542 },
@@ -262,7 +262,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "OB-2", r.doorX, r.doorY);
   });
 
-  // Map 04 (Old Building 2.2F) Rooms
+
   const ob3Rooms = [
     { id: "OB-2.2-STAIRS-L", name: "Stairs (Left) to 1st Floor", x: 2340, y: 2436, floor: 3, kind: "gate" as const, doorX: 2339, doorY: 2438 },
     { id: "OB-2.2-STAIRS-R", name: "Stairs (Right) to 1st Floor", x: 5660, y: 2436, floor: 3, kind: "gate" as const, doorX: 5660, doorY: 2438 },
@@ -278,7 +278,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "OB-3", r.doorX, r.doorY);
   });
 
-  // Map 05 (CL 1-4) Rooms
+
   const clSRooms = [
     { id: "CL-S-1", name: "CL 1", x: 6036, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6100, doorY: 3000 },
     { id: "CL-S-2", name: "CL 2", x: 4576, y: 1950, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4600, doorY: 3000 },
@@ -292,7 +292,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "CL-S-1", r.doorX, r.doorY);
   });
 
-  // Map 06 (CL 5-8) Rooms
+
   const clNRooms = [
     { id: "CL-N-5", name: "CL 5", x: 6036, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 6000, doorY: 700 },
     { id: "CL-N-6", name: "CL 6", x: 4576, y: 2000, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4420, doorY: 700 },
@@ -306,7 +306,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "CL-N-1", r.doorX, r.doorY);
   });
 
-  // Map 07 (CTMO) Rooms
+
   const ctmoRooms = [
     { id: "CTMO-1", name: "CTMO 1", x: 2140, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 2140, doorY: 3400 },
     { id: "CTMO-2", name: "CTMO 2", x: 3120, y: 2050, floor: 1, kind: "entrance" as const, claimable: true, doorX: 3120, doorY: 3400 },
@@ -320,7 +320,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "CTMO-1", r.doorX, r.doorY);
   });
 
-  // Map 08 (Gym Stage) Rooms
+
   const gymRooms = [
     { id: "GYM-STAGE", name: "Stage Floor", x: 4125, y: 1580, floor: 1, kind: "entrance" as const, claimable: true, doorX: 4125, doorY: 2750 },
     { id: "GYM-CR", name: "CR (Stage)", x: 2500, y: 3100, floor: 1, kind: "entrance" as const, doorX: 2500, doorY: 2750 },
@@ -334,7 +334,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "GYM-1", r.doorX, r.doorY);
   });
 
-  // Maps 09-11 (HM Building 1F-3F)
+
   for (let f = 1; f <= 3; f++) {
     const rooms = [
       { id: `HM-${f}-${f}02`, name: `HM ${f}02`, x: 2725, y: 1250, floor: f, kind: "entrance" as const, claimable: true, doorX: 2725, doorY: 2600 },
@@ -347,7 +347,7 @@ function buildCampusGraph(): CampusGraph {
     });
   }
 
-  // Maps 12-16 (New Building 1F-5F)
+
   const nb1Rooms = [
     { id: "NB-1-CR-S", name: "CR (South)", x: 990, y: 3175, floor: 1, kind: "entrance" as const, doorX: 1200, doorY: 2500 },
     { id: "NB-1-MGMT", name: "Department of Management", x: 1620, y: 2990, floor: 1, kind: "entrance" as const, claimable: true, doorX: 1620, doorY: 2500 },
@@ -371,7 +371,7 @@ function buildCampusGraph(): CampusGraph {
     linkToClosestDot(r.id, "NB-1", r.doorX, r.doorY);
   });
 
-  // Floors 2-5
+
   const upperDepts: Record<number, string> = {
     2: "Education Department",
     3: "Office AD Department",
@@ -398,7 +398,7 @@ function buildCampusGraph(): CampusGraph {
     });
   }
 
-  // 4. Vertical stairs and inter-building transitions
+
   const ob1Curve = closestDot("OB-1", 2340, 3274);
   const ob2Curve = closestDot("OB-2", 2500, 2274);
   if (ob1Curve && ob2Curve) addEdge(ob1Curve.id, ob2Curve.id, 8.0);

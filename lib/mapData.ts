@@ -92,7 +92,7 @@ function room(
   return { id, label, x, y, w, h, type, nodeId, department };
 }
 
-// 1. Old Building Floors (Map 02, 03, 04)
+
 const oldFloor1: FloorPlan = {
   floor: 1,
   name: "1st Floor",
@@ -174,7 +174,7 @@ const oldFloor2_2: FloorPlan = {
   ]
 };
 
-// 2. New Building Floors (Maps 12-16)
+
 const nbFloor1: FloorPlan = {
   floor: 1,
   name: "1st Floor",
@@ -220,7 +220,7 @@ function newUpperFloorPlan(floor: number, deptLabel: string, deptName: string): 
   };
 }
 
-// 3. CL Building (Maps 05, 06)
+
 const clSFloor: FloorPlan = {
   floor: 1,
   name: "1st Floor",
@@ -249,7 +249,7 @@ const clNFloor: FloorPlan = {
   ]
 };
 
-// 4. CTMO (Map 07)
+
 const ctmoFloor: FloorPlan = {
   floor: 1,
   name: "1st Floor",
@@ -264,7 +264,7 @@ const ctmoFloor: FloorPlan = {
   ]
 };
 
-// 5. HM Building (Maps 09-11)
+
 function hmFloorPlan(floor: number): FloorPlan {
   const ordinal = ["", "1st Floor", "2nd Floor", "3rd Floor"][floor];
   return {
@@ -280,7 +280,7 @@ function hmFloorPlan(floor: number): FloorPlan {
   };
 }
 
-// 6. Gym Stage Floor (Map 08)
+
 const gymFloor: FloorPlan = {
   floor: 1,
   name: "Stage Floor",

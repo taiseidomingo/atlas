@@ -230,3 +230,25 @@ main {
     font-size: 1rem;
   }
 }
+
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  overscroll-behavior-y: none;
+}
+.headerInner {
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
+}
+.footer {
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+}

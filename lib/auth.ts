@@ -41,12 +41,27 @@ function accounts(): Map<string, string> {
     }),
   );
   if (demoLoginsEnabled()) map.set("demo professor", "1234");
-  map.set("admin", "admin");
+
+  map.delete(adminName());
+  const adminPin = adminPinValue();
+  if (adminPin) map.set(adminName(), adminPin);
   return map;
 }
 
+function adminName(): string {
+  return (process.env.ADMIN_USERNAME ?? "admin").trim().toLowerCase() || "admin";
+}
+
+
+
+
+function adminPinValue(): string | null {
+  if (process.env.ADMIN_PIN) return process.env.ADMIN_PIN;
+  return process.env.NODE_ENV !== "production" ? "admin" : null;
+}
+
 export function isAdmin(name: string | null): boolean {
-  return name?.trim().toLowerCase() === "admin";
+  return name?.trim().toLowerCase() === adminName();
 }
 
 export function verifyLogin(name: string, pin: string): string | null {
@@ -58,7 +73,7 @@ export function verifyLogin(name: string, pin: string): string | null {
     .split(";")
     .map((entry) => entry.split(":")[0].trim())
     .find((entry) => entry.toLowerCase() === key);
-  return display ?? (key === "demo professor" ? "Demo Professor" : key === "admin" ? "admin" : name.trim());
+  return display ?? (key === "demo professor" ? "Demo Professor" : key === adminName() ? adminName() : name.trim());
 }
 
 export function attachSession(
