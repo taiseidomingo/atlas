@@ -60,13 +60,22 @@ export default function TeacherPage() {
   const login = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    const res = await fetch("/api/teacher/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, pin }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setError(data.error ?? "Login failed.");
+    let res: Response;
+    try {
+      res = await fetch("/api/teacher/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, pin }),
+      });
+    } catch {
+      return setError("Couldn't reach the server. Check your connection and try again.");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return setError(
+        data.error ?? `Login failed (server error ${res.status}). Please try again later.`,
+      );
+    }
     setPin("");
     await loadSession();
   };

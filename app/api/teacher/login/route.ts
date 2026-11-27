@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   attachSession,
+  loginConfigProblem,
   loginLocked,
   recordLogin,
   verifyLogin,
@@ -20,6 +21,8 @@ async function handlePOST(request: NextRequest) {
   }
 
   const { name, pin } = await request.json().catch(() => ({}));
+  const problem = typeof name === "string" ? loginConfigProblem(name) : null;
+  if (problem) return NextResponse.json({ error: problem }, { status: 503 });
   const login =
     typeof name === "string" && typeof pin === "string" && name.trim() && pin
       ? verifyLogin(name, pin)

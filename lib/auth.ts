@@ -73,8 +73,25 @@ export function listEnvTeacherNames(): string[] {
 }
 
 function adminPinValue(): string | null {
-  if (process.env.ADMIN_PIN) return process.env.ADMIN_PIN;
+  // Trimmed: a stray space or newline pasted into the hosting dashboard
+  // would otherwise make the right password fail.
+  const pin = process.env.ADMIN_PIN?.trim();
+  if (pin) return pin;
   return process.env.NODE_ENV !== "production" ? "admin" : null;
+}
+
+/**
+ * Setup problems that make logging in impossible, explained in plain words
+ * (shown on the login page instead of a silent failure).
+ */
+export function loginConfigProblem(name: string): string | null {
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    return "Login is not set up on this server: the SESSION_SECRET environment variable is missing. Add it in the hosting settings and redeploy.";
+  }
+  if (normalizeUsername(name) === adminName() && !adminPinValue()) {
+    return "Admin login is turned off on this server: the ADMIN_PIN environment variable is missing for this deployment. Add it and redeploy.";
+  }
+  return null;
 }
 
 /** @deprecated name-based check; use isAdminRequest / getSession().role. */
