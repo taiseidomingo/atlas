@@ -11,7 +11,22 @@
     "OB-2.1-RM202": "RM 202",
     "OB-2.1-SUPPLY-STOCK": "Supply & Property Office",
     "OB-2.1-FITTING": "Fitting Room",
-    "OB-2.1-LIBRARY": "Library"
+    "OB-2.1-LIBRARY": "Library",
+    "building:cl-s": "CL Building (CL 1-4)",
+    "building:cl-n": "CL Building (CL 5-8)",
+    "building:ctmo": "CTMO",
+    "building:gym": "Gymnasium",
+    "building:hm": "HM Building",
+    "building:new": "New Building",
+    "building:old": "Old Building",
+    "CL-S-4": "CL 4",
+    "CL-S-3": "CL 3",
+    "CL-S-2": "CL 2",
+    "CL-S-1": "CL 1",
+    "CL-N-8": "CL 8",
+    "CL-N-7": "CL 7",
+    "CL-N-6": "CL 6",
+    "CL-N-5": "CL 5"
   },
   "uses": {
     "Learning Room": 1,
