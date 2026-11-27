@@ -101,11 +101,32 @@ function buildCampusGraph(): CampusGraph {
     [9, 59, 5.0],
     [18, 19, 5.0],
     [59, 60, 5.0],
+
+    // Missing links in the third-floor dashed corridor:
+    // the two stair landing stubs and the east-side walkway branch.
+    [0, 7, 17.3],
+    [1, 8, 17.3],
+    [12, 62, 47.4],
   ]);
   processMap("05", "CL-S-1", 1);
   processMap("06", "CL-N-1", 1);
   processMap("07", "CTMO-1", 1);
-  processMap("08", "GYM-1", 1);
+  processMap("08", "GYM-1", 1, [
+    // Join the upper and lower parts of the gym perimeter walkway.
+    [73, 86, 42.5],
+    [72, 87, 47.3],
+
+    // Join the four dashed room-entry branches to the lower corridor.
+    [142, 219, 25.0],
+    [143, 162, 19.6],
+    [144, 169, 19.4],
+    [145, 190, 23.0],
+
+    // Join the walkable junction groups inside the open gym floor.
+    [111, 75, 39.4],
+    [58, 85, 24.0],
+    [82, 77, 9.8],
+  ]);
   processMap("09", "HM-1", 1);
   processMap("10", "HM-2", 2);
   processMap("11", "HM-3", 3);
@@ -138,9 +159,44 @@ function buildCampusGraph(): CampusGraph {
     weight?: number,
   ) {
     const dot = closestDot(dotPrefix, targetX, targetY);
-    if (dot) {
-      addEdge(nodeId, dot.id, weight);
+    const place = byId.get(nodeId);
+
+    if (!dot || !place) {
+      return;
     }
+
+    const distanceToDoor = Math.hypot(place.x - targetX, place.y - targetY);
+
+    const toMeters = (distancePx: number) =>
+      Math.max(0.1, Math.round(distancePx * METERS_PER_PIXEL * 10) / 10);
+
+    if (distanceToDoor < 1) {
+      addEdge(nodeId, dot.id, weight);
+      return;
+    }
+
+    const doorId = `${nodeId}-DOOR`;
+
+    addNode({
+      id: doorId,
+      name: `${place.name} entrance`,
+      x: targetX,
+      y: targetY,
+      kind: "junction",
+      floor: place.floor,
+    });
+
+    const doorNode = byId.get(doorId);
+
+    if (!doorNode) {
+      return;
+    }
+
+    addEdge(nodeId, doorId, toMeters(distanceToDoor));
+
+    const distanceToPath = Math.hypot(doorNode.x - dot.x, doorNode.y - dot.y);
+
+    addEdge(doorId, dot.id, weight ?? toMeters(distanceToPath));
   }
 
   const campusPlaces: GraphNode[] = [

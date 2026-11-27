@@ -42,8 +42,13 @@ import {
 } from "@/lib/mapData";
 import type { BuildingId, CampusShape, PlanRoom, Rect } from "@/lib/mapData";
 import {
-  buildingDisplayName, buildingNameKey, displayName, fitMapLabel,
-  floorDisplayName, floorNameKey, syntheticRoomNameKey,
+  buildingDisplayName,
+  buildingNameKey,
+  displayName,
+  fitMapLabel,
+  floorDisplayName,
+  floorNameKey,
+  syntheticRoomNameKey,
 } from "@/lib/locationNames";
 
 type Phase = "campus" | "in" | "building" | "out";
@@ -107,6 +112,7 @@ const indoorImages: Record<
 > = {
   "old-1": { src: campusMap02.src, width: 1365, height: 768 },
   "old-2": { src: campusMap03.src, width: 1365, height: 768 },
+  "old-3": { src: campusMap04.src, width: 1365, height: 768 },
   ctmo: { src: campusMap07.src, width: 1365, height: 768 },
   gym: { src: campusMap08.src, width: 1365, height: 768 },
   "cl-n": { src: campusMap06.src, width: 1365, height: 768 },
@@ -309,7 +315,8 @@ function isSelectableNode(id: string): boolean {
 }
 
 export function buildSelectGroups(names: Record<string, string> = {}) {
-  const groups: { label: string; options: { id: string; name: string }[] }[] = [];
+  const groups: { label: string; options: { id: string; name: string }[] }[] =
+    [];
   const outdoor = campusGraph.nodes.filter(
     (n) =>
       !buildingOfNode(n.id) && (n.kind === "entrance" || n.kind === "gate"),
@@ -330,10 +337,17 @@ export function buildSelectGroups(names: Record<string, string> = {}) {
             n.floor === f.floor &&
             (n.kind === "entrance" || n.kind === "gate"),
         )
-        .map((n) => ({ id: n.id, name: displayName(names, n.id, shortName(n.name)) }));
+        .map((n) => ({
+          id: n.id,
+          name: displayName(names, n.id, shortName(n.name)),
+        }));
       if (options.length > 0) {
         groups.push({
-          label: `${buildingDisplayName(names, b.id, b.name)}, ${floorDisplayName(names, b.id, f.floor, f.name)}`,
+          label: `${buildingDisplayName(
+            names,
+            b.id,
+            b.name,
+          )}, ${floorDisplayName(names, b.id, f.floor, f.name)}`,
           options,
         });
       }
@@ -453,7 +467,9 @@ export default function CampusMap({
   const [claims, setClaims] = useState<Record<string, string>>({});
   const [roomNames, setRoomNames] = useState<Record<string, string>>({});
   const [managedItems, setManagedItems] = useState<AdminNameItem[]>([]);
-  const [selectedManagedId, setSelectedManagedId] = useState<string | null>(null);
+  const [selectedManagedId, setSelectedManagedId] = useState<string | null>(
+    null,
+  );
   const [nameSearch, setNameSearch] = useState("");
   const [nameSaving, setNameSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -558,11 +574,14 @@ export default function CampusMap({
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        if (data.names && typeof data.names === "object") setRoomNames(data.names);
+        if (data.names && typeof data.names === "object")
+          setRoomNames(data.names);
         if (Array.isArray(data.items)) setManagedItems(data.items);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isAdmin]);
 
   const clearPins = useCallback(() => {
@@ -616,7 +635,16 @@ export default function CampusMap({
       let label = "Walk outdoors";
       if (b) {
         const plan = buildingById[b].floors.find((f) => f.floor === n.floor);
-        label = `${buildingDisplayName(roomNames, b, buildingById[b].name)}, ${floorDisplayName(roomNames, b, n.floor ?? 1, plan?.name ?? `Floor ${n.floor}`)}`;
+        label = `${buildingDisplayName(
+          roomNames,
+          b,
+          buildingById[b].name,
+        )}, ${floorDisplayName(
+          roomNames,
+          b,
+          n.floor ?? 1,
+          plan?.name ?? `Floor ${n.floor}`,
+        )}`;
       }
       result.push({
         key,
@@ -683,8 +711,6 @@ export default function CampusMap({
   const indoorWalkableEdges = useMemo(() => {
     const alwaysShow = buildingId !== "old" && buildingId !== "new";
     if (!showNodes && !alwaysShow) return [];
-    const isOldNet = (id: string) =>
-      id.startsWith("OB-1-P") || id.startsWith("OB-1-D");
     return routingGraph.edges.flatMap((edge) => {
       const from = nodeById.get(edge.from);
       const to = nodeById.get(edge.to);
@@ -696,9 +722,6 @@ export default function CampusMap({
         return [];
       }
       if (from.floor !== floor || to.floor !== floor) return [];
-      if (buildingId === "old" && !(isOldNet(edge.from) && isOldNet(edge.to))) {
-        return [];
-      }
       return [
         {
           key: `${edge.from}-${edge.to}`,
@@ -807,7 +830,8 @@ export default function CampusMap({
       editingRoomId !== id &&
       editingRoomName !== editingRoomOriginalName &&
       !window.confirm("Discard unsaved name changes?")
-    ) return;
+    )
+      return;
 
     setSelectedManagedId(id);
     setEditingRoomId(id);
@@ -849,13 +873,20 @@ export default function CampusMap({
     if (phase !== "campus") return;
     if (isAdmin && roomEditingMode) {
       if (shape.buildingId) {
-        const buildingData = buildings.find((candidate) => candidate.id === shape.buildingId);
+        const buildingData = buildings.find(
+          (candidate) => candidate.id === shape.buildingId,
+        );
         const matchingRoomId = shape.id === "gym-stage" ? "stage" : shape.id;
         const match = buildingData?.floors
-          .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === matchingRoomId) }))
+          .map((candidate) => ({
+            floor: candidate.floor,
+            room: candidate.rooms.find((room) => room.id === matchingRoomId),
+          }))
           .find((entry) => !!entry.room);
         if (match?.room) {
-          const id = match.room.nodeId ?? syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
+          const id =
+            match.room.nodeId ??
+            syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
           selectManagedLocation(id, shape.label.replace(/\n/g, " "), {
             buildingId: shape.buildingId,
             floor: match.floor,
@@ -870,14 +901,23 @@ export default function CampusMap({
           });
         }
       } else {
-        const representedBuilding = buildings.find((candidate) => candidate.id === shape.id);
+        const representedBuilding = buildings.find(
+          (candidate) => candidate.id === shape.id,
+        );
         if (representedBuilding) {
-          selectManagedLocation(buildingNameKey(representedBuilding.id), representedBuilding.name, {
-            buildingId: representedBuilding.id,
-            kind: "building",
-          });
+          selectManagedLocation(
+            buildingNameKey(representedBuilding.id),
+            representedBuilding.name,
+            {
+              buildingId: representedBuilding.id,
+              kind: "building",
+            },
+          );
         } else if (shape.nodeId) {
-          selectManagedLocation(shape.nodeId, shape.label, { nodeId: shape.nodeId, kind: "area" });
+          selectManagedLocation(shape.nodeId, shape.label, {
+            nodeId: shape.nodeId,
+            kind: "area",
+          });
         }
       }
       return;
@@ -933,7 +973,8 @@ export default function CampusMap({
     if (!isAdmin || !editingRoomId || nameSaving) return;
     const name = editingRoomName.trim();
     if (!name) return setRoomNameError("Name cannot be empty.");
-    if (name.length > 100) return setRoomNameError("Names must be 100 characters or fewer.");
+    if (name.length > 100)
+      return setRoomNameError("Names must be 100 characters or fewer.");
     setNameSaving(true);
     setRoomNameError("");
     try {
@@ -949,7 +990,7 @@ export default function CampusMap({
       }
       const updatedNames =
         data.names && typeof data.names === "object"
-          ? data.names as Record<string, string>
+          ? (data.names as Record<string, string>)
           : { ...roomNames, [editingRoomId]: name };
       setRoomNames(updatedNames);
       onNamesChange?.(updatedNames);
@@ -1037,7 +1078,10 @@ export default function CampusMap({
       {
         id: points.length + 1,
         mapKey,
-        label: phase === "campus" ? "Campus" : `${currentBuildingName}, ${currentFloorName}`,
+        label:
+          phase === "campus"
+            ? "Campus"
+            : `${currentBuildingName}, ${currentFloorName}`,
         ...coordinates,
       },
     ]);
@@ -1052,17 +1096,33 @@ export default function CampusMap({
           : ""),
     )
     .join("\n");
-  const currentBuildingName = buildingDisplayName(roomNames, buildingId, building.name);
-  const currentFloorName = floorDisplayName(roomNames, buildingId, floor, plan.name);
+  const currentBuildingName = buildingDisplayName(
+    roomNames,
+    buildingId,
+    building.name,
+  );
+  const currentFloorName = floorDisplayName(
+    roomNames,
+    buildingId,
+    floor,
+    plan.name,
+  );
   const phaseLabel =
     phase === "building" || phase === "out" || phase === "in"
       ? `${currentBuildingName}, ${currentFloorName}`
       : "Campus overview";
   const visibleManagedItems = managedItems.filter((item) =>
-    `${item.name} ${item.context} ${item.id}`.toLowerCase().includes(nameSearch.trim().toLowerCase()),
+    `${item.name} ${item.context} ${item.id}`
+      .toLowerCase()
+      .includes(nameSearch.trim().toLowerCase()),
   );
-  const selectedManagedItem = managedItems.find((item) => item.id === selectedManagedId);
-  const locationSelectGroups = useMemo(() => buildSelectGroups(roomNames), [roomNames]);
+  const selectedManagedItem = managedItems.find(
+    (item) => item.id === selectedManagedId,
+  );
+  const locationSelectGroups = useMemo(
+    () => buildSelectGroups(roomNames),
+    [roomNames],
+  );
 
   return (
     <div className={styles.root}>
@@ -1106,10 +1166,15 @@ export default function CampusMap({
         </section>
       )}
       <div
-        className={`${styles.layout} ${hideSidebar ? styles.noSidebar : ""} ${isAdmin && roomEditingMode ? styles.layoutWithEditor : ""}`}
+        className={`${styles.layout} ${hideSidebar ? styles.noSidebar : ""} ${
+          isAdmin && roomEditingMode ? styles.layoutWithEditor : ""
+        }`}
       >
         {isAdmin && roomEditingMode && (
-          <aside className={styles.adminEditor} aria-label="Location name editor">
+          <aside
+            className={styles.adminEditor}
+            aria-label="Location name editor"
+          >
             <div className={styles.editorHeader}>
               <div>
                 <strong>Manage map names</strong>
@@ -1132,14 +1197,20 @@ export default function CampusMap({
               placeholder="Search locations…"
               aria-label="Search locations"
             />
-            <div className={styles.editorList} role="listbox" aria-label="Available locations">
+            <div
+              className={styles.editorList}
+              role="listbox"
+              aria-label="Available locations"
+            >
               {visibleManagedItems.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   role="option"
                   aria-selected={selectedManagedId === item.id}
-                  className={`${styles.editorItem} ${selectedManagedId === item.id ? styles.editorItemActive : ""}`}
+                  className={`${styles.editorItem} ${
+                    selectedManagedId === item.id ? styles.editorItemActive : ""
+                  }`}
                   onClick={() => selectManagedItem(item)}
                   disabled={nameSaving}
                 >
@@ -1156,10 +1227,17 @@ export default function CampusMap({
             </div>
             <div className={styles.editorForm}>
               <div className={styles.editorFormHeading}>
-                <strong>{selectedManagedItem ? "Edit selected name" : "Select a location"}</strong>
+                <strong>
+                  {selectedManagedItem
+                    ? "Edit selected name"
+                    : "Select a location"}
+                </strong>
                 {selectedManagedItem && <span>{selectedManagedItem.kind}</span>}
               </div>
-              <label className={styles.editorLabel} htmlFor="atlas-managed-name">
+              <label
+                className={styles.editorLabel}
+                htmlFor="atlas-managed-name"
+              >
                 Current name
               </label>
               <input
@@ -1174,7 +1252,9 @@ export default function CampusMap({
                   if (event.key === "Enter") saveRoomNameEdit();
                   if (event.key === "Escape") {
                     const savedName = selectedManagedId
-                      ? roomNames[selectedManagedId] ?? selectedManagedItem?.name ?? ""
+                      ? roomNames[selectedManagedId] ??
+                        selectedManagedItem?.name ??
+                        ""
                       : "";
                     setEditingRoomName(savedName);
                     setEditingRoomOriginalName(savedName);
@@ -1187,7 +1267,12 @@ export default function CampusMap({
                   type="button"
                   className={styles.editorSave}
                   onClick={saveRoomNameEdit}
-                  disabled={!editingRoomId || nameSaving || !editingRoomName.trim() || editingRoomName.trim() === editingRoomOriginalName}
+                  disabled={
+                    !editingRoomId ||
+                    nameSaving ||
+                    !editingRoomName.trim() ||
+                    editingRoomName.trim() === editingRoomOriginalName
+                  }
                 >
                   {nameSaving ? "Saving…" : "Save name"}
                 </button>
@@ -1197,7 +1282,9 @@ export default function CampusMap({
                   disabled={!editingRoomId || nameSaving}
                   onClick={() => {
                     const savedName = selectedManagedId
-                      ? roomNames[selectedManagedId] ?? selectedManagedItem?.name ?? ""
+                      ? roomNames[selectedManagedId] ??
+                        selectedManagedItem?.name ??
+                        ""
                       : "";
                     setEditingRoomName(savedName);
                     setEditingRoomOriginalName(savedName);
@@ -1207,8 +1294,14 @@ export default function CampusMap({
                   Cancel
                 </button>
               </div>
-              {roomNameError && <p className={styles.editorError} role="alert">{roomNameError}</p>}
-              <p className={styles.editorHint}>Selecting an item also highlights its location on the map.</p>
+              {roomNameError && (
+                <p className={styles.editorError} role="alert">
+                  {roomNameError}
+                </p>
+              )}
+              <p className={styles.editorHint}>
+                Selecting an item also highlights its location on the map.
+              </p>
             </div>
           </aside>
         )}
@@ -1280,25 +1373,54 @@ export default function CampusMap({
                 })}
 
                 {campusShapes.map((s) => {
-                  const representedBuildingId = s.buildingId ?? buildings.find((candidate) => candidate.id === s.id)?.id;
+                  const representedBuildingId =
+                    s.buildingId ??
+                    buildings.find((candidate) => candidate.id === s.id)?.id;
                   const buildingData = representedBuildingId
-                    ? buildings.find((candidate) => candidate.id === representedBuildingId)
+                    ? buildings.find(
+                        (candidate) => candidate.id === representedBuildingId,
+                      )
                     : undefined;
                   const matchingRoomId = s.id === "gym-stage" ? "stage" : s.id;
                   const matchingRoom = buildingData?.floors
-                    .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === matchingRoomId) }))
+                    .map((candidate) => ({
+                      floor: candidate.floor,
+                      room: candidate.rooms.find(
+                        (room) => room.id === matchingRoomId,
+                      ),
+                    }))
                     .find((entry) => !!entry.room);
-                  const shapeRoomKey = matchingRoom?.room && representedBuildingId
-                    ? matchingRoom.room.nodeId ?? syntheticRoomNameKey(representedBuildingId, matchingRoom.floor, matchingRoom.room.id)
-                    : undefined;
-                  const shapeManagedId = shapeRoomKey ?? (representedBuildingId ? buildingNameKey(representedBuildingId) : s.nodeId);
-                  const shapeName = shapeRoomKey && matchingRoom?.room
-                    ? displayName(roomNames, shapeRoomKey, s.label)
-                    : representedBuildingId
-                    ? displayName(roomNames, buildingNameKey(representedBuildingId), s.label)
-                    : displayName(roomNames, s.nodeId, s.label);
-                  const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
-                  const shapeClipId = `campus-label-${s.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+                  const shapeRoomKey =
+                    matchingRoom?.room && representedBuildingId
+                      ? matchingRoom.room.nodeId ??
+                        syntheticRoomNameKey(
+                          representedBuildingId,
+                          matchingRoom.floor,
+                          matchingRoom.room.id,
+                        )
+                      : undefined;
+                  const shapeManagedId =
+                    shapeRoomKey ??
+                    (representedBuildingId
+                      ? buildingNameKey(representedBuildingId)
+                      : s.nodeId);
+                  const shapeName =
+                    shapeRoomKey && matchingRoom?.room
+                      ? displayName(roomNames, shapeRoomKey, s.label)
+                      : representedBuildingId
+                      ? displayName(
+                          roomNames,
+                          buildingNameKey(representedBuildingId),
+                          s.label,
+                        )
+                      : displayName(roomNames, s.nodeId, s.label);
+                  const shapeHasOverride = !!(
+                    shapeManagedId && roomNames[shapeManagedId]
+                  );
+                  const shapeClipId = `campus-label-${s.id}`.replace(
+                    /[^a-zA-Z0-9_-]/g,
+                    "-",
+                  );
                   const shapeLabelLayout = fitMapLabel(
                     shapeName,
                     s.vertical ? s.h : s.w,
@@ -1311,7 +1433,9 @@ export default function CampusMap({
                     styles[`tone_${s.tone}`],
                     selectable ? styles.hoverable : "",
                     (selectedId && selectedId === s.nodeId) ||
-                    (roomEditingMode && shapeManagedId && selectedManagedId === shapeManagedId)
+                    (roomEditingMode &&
+                      shapeManagedId &&
+                      selectedManagedId === shapeManagedId)
                       ? styles.isSelected
                       : "",
                     kind === "start" ? styles.isStart : "",
@@ -1325,7 +1449,9 @@ export default function CampusMap({
                       onClick={() => onShapeClick(s)}
                       role={selectable ? "button" : undefined}
                       tabIndex={selectable ? 0 : undefined}
-                      aria-label={selectable ? `${shapeName}, select` : undefined}
+                      aria-label={
+                        selectable ? `${shapeName}, select` : undefined
+                      }
                       onKeyDown={(e) => {
                         if (
                           selectable &&
@@ -1342,17 +1468,23 @@ export default function CampusMap({
                         width={s.w}
                         height={s.h}
                         rx={3}
-                        className={campusMap01
-                          ? styles.imageHitbox + " " + (
-                              (roomEditingMode && selectedManagedId === (shapeManagedId ?? "")) ||
+                        className={
+                          campusMap01
+                            ? styles.imageHitbox +
+                              " " +
+                              ((roomEditingMode &&
+                                selectedManagedId === (shapeManagedId ?? "")) ||
                               (selectedId && selectedId === s.nodeId)
                                 ? styles.isSelected
-                                : ""
-                            )
-                          : cls}
+                                : "")
+                            : cls
+                        }
                       />
                       <defs>
-                        <clipPath id={shapeClipId} clipPathUnits="userSpaceOnUse">
+                        <clipPath
+                          id={shapeClipId}
+                          clipPathUnits="userSpaceOnUse"
+                        >
                           <rect
                             x={s.x + 4}
                             y={s.y + 4}
@@ -1381,9 +1513,15 @@ export default function CampusMap({
                           <tspan
                             key={index}
                             x={cx}
-                            dy={index === 0
-                              ? -((shapeLabelLayout.lines.length - 1) * shapeLabelLayout.fontSize * 0.58)
-                              : shapeLabelLayout.fontSize * 1.16}
+                            dy={
+                              index === 0
+                                ? -(
+                                    (shapeLabelLayout.lines.length - 1) *
+                                    shapeLabelLayout.fontSize *
+                                    0.58
+                                  )
+                                : shapeLabelLayout.fontSize * 1.16
+                            }
                           >
                             {line}
                           </tspan>
@@ -1399,9 +1537,17 @@ export default function CampusMap({
                   .map((b) => {
                     const cx = b.rect.x + b.rect.w / 2;
                     const cy = b.rect.y + b.rect.h / 2;
-                    const buildingLabel = buildingDisplayName(roomNames, b.id, b.name);
+                    const buildingLabel = buildingDisplayName(
+                      roomNames,
+                      b.id,
+                      b.name,
+                    );
                     const buildingClipId = `building-label-${b.id}`;
-                    const buildingLabelLayout = fitMapLabel(buildingLabel, b.rect.h, b.rect.w);
+                    const buildingLabelLayout = fitMapLabel(
+                      buildingLabel,
+                      b.rect.h,
+                      b.rect.w,
+                    );
                     const hitRects =
                       b.id === "old"
                         ? [
@@ -1415,26 +1561,38 @@ export default function CampusMap({
                         onClick={() => {
                           if (builderMode || phase !== "campus") return;
                           if (isAdmin && roomEditingMode) {
-                            selectManagedLocation(buildingNameKey(b.id), buildingDisplayName(roomNames, b.id, b.name), {
-                              buildingId: b.id,
-                              kind: "building",
-                            });
+                            selectManagedLocation(
+                              buildingNameKey(b.id),
+                              buildingDisplayName(roomNames, b.id, b.name),
+                              {
+                                buildingId: b.id,
+                                kind: "building",
+                              },
+                            );
                           } else {
                             enterBuilding(b.id);
                           }
                         }}
                         role="button"
                         tabIndex={0}
-                        aria-label={`${buildingDisplayName(roomNames, b.id, b.name)}, open floor plans`}
+                        aria-label={`${buildingDisplayName(
+                          roomNames,
+                          b.id,
+                          b.name,
+                        )}, open floor plans`}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
                             if (phase === "campus") {
                               if (isAdmin && roomEditingMode) {
-                                selectManagedLocation(buildingNameKey(b.id), buildingDisplayName(roomNames, b.id, b.name), {
-                                  buildingId: b.id,
-                                  kind: "building",
-                                });
+                                selectManagedLocation(
+                                  buildingNameKey(b.id),
+                                  buildingDisplayName(roomNames, b.id, b.name),
+                                  {
+                                    buildingId: b.id,
+                                    kind: "building",
+                                  },
+                                );
                               } else {
                                 enterBuilding(b.id);
                               }
@@ -1450,11 +1608,19 @@ export default function CampusMap({
                             width={rect.w}
                             height={rect.h}
                             rx={4}
-                            className={`${styles.imageHitbox} ${roomEditingMode && selectedManagedId === buildingNameKey(b.id) ? styles.isSelected : ""}`}
+                            className={`${styles.imageHitbox} ${
+                              roomEditingMode &&
+                              selectedManagedId === buildingNameKey(b.id)
+                                ? styles.isSelected
+                                : ""
+                            }`}
                           />
                         ))}
                         <defs>
-                          <clipPath id={buildingClipId} clipPathUnits="userSpaceOnUse">
+                          <clipPath
+                            id={buildingClipId}
+                            clipPathUnits="userSpaceOnUse"
+                          >
                             <rect
                               x={b.rect.x + 4}
                               y={b.rect.y + 4}
@@ -1467,7 +1633,11 @@ export default function CampusMap({
                           clipPath={`url(#${buildingClipId})`}
                           x={cx}
                           y={cy - 10}
-                          className={roomNames[buildingNameKey(b.id)] ? styles.label : styles.imageLabelHidden}
+                          className={
+                            roomNames[buildingNameKey(b.id)]
+                              ? styles.label
+                              : styles.imageLabelHidden
+                          }
                           fontSize={buildingLabelLayout.fontSize}
                           textAnchor="middle"
                           dominantBaseline="central"
@@ -1477,9 +1647,15 @@ export default function CampusMap({
                             <tspan
                               key={index}
                               x={cx}
-                              dy={index === 0
-                                ? -((buildingLabelLayout.lines.length - 1) * buildingLabelLayout.fontSize * 0.58)
-                                : buildingLabelLayout.fontSize * 1.16}
+                              dy={
+                                index === 0
+                                  ? -(
+                                      (buildingLabelLayout.lines.length - 1) *
+                                      buildingLabelLayout.fontSize *
+                                      0.58
+                                    )
+                                  : buildingLabelLayout.fontSize * 1.16
+                              }
                             >
                               {line}
                             </tspan>
@@ -1494,7 +1670,11 @@ export default function CampusMap({
                         >
                           Tap to enter
                         </text>
-                        <title>{`${buildingDisplayName(roomNames, b.id, b.name)}: click to see the floor plans`}</title>
+                        <title>{`${buildingDisplayName(
+                          roomNames,
+                          b.id,
+                          b.name,
+                        )}: click to see the floor plans`}</title>
                       </g>
                     );
                   })}
@@ -1684,16 +1864,27 @@ export default function CampusMap({
                         : imageRoomRect(buildingId, floor, room.id)
                       : planRect(room);
                     if (!r) return null;
-                    const managedRoomId = room.nodeId ?? syntheticRoomNameKey(buildingId, floor, room.id);
-                    const displayRoomName = displayName(roomNames, managedRoomId, room.label);
+                    const managedRoomId =
+                      room.nodeId ??
+                      syntheticRoomNameKey(buildingId, floor, room.id);
+                    const displayRoomName = displayName(
+                      roomNames,
+                      managedRoomId,
+                      room.label,
+                    );
                     const labelLayout = fitMapLabel(displayRoomName, r.w, r.h);
                     const lines = labelLayout.lines;
                     const fs = labelLayout.fontSize;
-                    const roomClipId = `room-label-${buildingId}-${floor}-${room.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
+                    const roomClipId =
+                      `room-label-${buildingId}-${floor}-${room.id}`.replace(
+                        /[^a-zA-Z0-9_-]/g,
+                        "-",
+                      );
                     const selectable =
                       roomEditingMode ||
                       (!!room.nodeId &&
-                        (isSelectableNode(room.nodeId) || !!room.openBuildingId));
+                        (isSelectableNode(room.nodeId) ||
+                          !!room.openBuildingId));
                     const kind = pinKind(room.nodeId);
                     const cls = [
                       indoorImage ? styles.imageHitbox : styles.room,
@@ -1704,8 +1895,8 @@ export default function CampusMap({
                           ? styles.roomOccupied
                           : styles.roomAvailable
                         : "",
-                      ((selectedId && selectedId === room.nodeId) ||
-                        (roomEditingMode && selectedManagedId === managedRoomId))
+                      (selectedId && selectedId === room.nodeId) ||
+                      (roomEditingMode && selectedManagedId === managedRoomId)
                         ? styles.isSelected
                         : "",
                       kind === "start" ? styles.isStart : "",
@@ -1719,12 +1910,16 @@ export default function CampusMap({
                         onClick={() => {
                           if (builderMode) return;
                           if (isAdmin && roomEditingMode) {
-                            selectManagedLocation(managedRoomId, displayRoomName, {
-                              buildingId,
-                              floor,
-                              nodeId: room.nodeId,
-                              kind: "room",
-                            });
+                            selectManagedLocation(
+                              managedRoomId,
+                              displayRoomName,
+                              {
+                                buildingId,
+                                floor,
+                                nodeId: room.nodeId,
+                                kind: "room",
+                              },
+                            );
                             return;
                           }
                           if (room.openBuildingId) {
@@ -1750,12 +1945,16 @@ export default function CampusMap({
                           ) {
                             e.preventDefault();
                             if (isAdmin && roomEditingMode) {
-                              selectManagedLocation(managedRoomId, displayRoomName, {
-                                buildingId,
-                                floor,
-                                nodeId: room.nodeId,
-                                kind: "room",
-                              });
+                              selectManagedLocation(
+                                managedRoomId,
+                                displayRoomName,
+                                {
+                                  buildingId,
+                                  floor,
+                                  nodeId: room.nodeId,
+                                  kind: "room",
+                                },
+                              );
                               return;
                             }
                             if (room.openBuildingId) {
@@ -1787,7 +1986,10 @@ export default function CampusMap({
                             />
                           </clipPath>
                         </defs>
-                        <g clipPath={`url(#${roomClipId})`} pointerEvents="none">
+                        <g
+                          clipPath={`url(#${roomClipId})`}
+                          pointerEvents="none"
+                        >
                           {lines.map((line, i) => (
                             <text
                               key={i}
@@ -1939,9 +2141,12 @@ export default function CampusMap({
                   setBuilderMode(false);
                   setRoomEditingMode(true);
                   setNameSearch("");
-                  const previousItem = managedItems.find((item) => item.id === selectedManagedId);
+                  const previousItem = managedItems.find(
+                    (item) => item.id === selectedManagedId,
+                  );
                   if (previousItem) {
-                    const savedName = roomNames[previousItem.id] ?? previousItem.name;
+                    const savedName =
+                      roomNames[previousItem.id] ?? previousItem.name;
                     setEditingRoomId(previousItem.id);
                     setEditingRoomName(savedName);
                     setEditingRoomOriginalName(savedName);
@@ -1996,8 +2201,18 @@ export default function CampusMap({
                         buildingId === "old" ? styles.floorBtnWide : ""
                       } ${f.floor === floor ? styles.floorActive : ""}`}
                       aria-pressed={f.floor === floor}
-                      aria-label={floorDisplayName(roomNames, buildingId, f.floor, f.name)}
-                      title={floorDisplayName(roomNames, buildingId, f.floor, f.name)}
+                      aria-label={floorDisplayName(
+                        roomNames,
+                        buildingId,
+                        f.floor,
+                        f.name,
+                      )}
+                      title={floorDisplayName(
+                        roomNames,
+                        buildingId,
+                        f.floor,
+                        f.name,
+                      )}
                       onClick={() => {
                         if (
                           roomEditingMode &&
@@ -2014,7 +2229,13 @@ export default function CampusMap({
                     >
                       {roomNames[floorNameKey(buildingId, f.floor)] ??
                         (buildingId === "old"
-                          ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
+                          ? f.floor === 1
+                            ? "1F"
+                            : f.floor === 2
+                            ? "2.1F"
+                            : f.floor === 3
+                            ? "2.2F"
+                            : `${f.floor}F`
                           : `${f.floor}F`)}
                     </button>
                   ))}
