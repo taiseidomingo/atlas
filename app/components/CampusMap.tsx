@@ -849,7 +849,7 @@ export default function CampusMap({
           .find((entry) => !!entry.room);
         if (match?.room) {
           const id = match.room.nodeId ?? syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
-          selectManagedLocation(id, match.room.label.replace(/\n/g, " "), {
+          selectManagedLocation(id, shape.label.replace(/\n/g, " "), {
             buildingId: shape.buildingId,
             floor: match.floor,
             nodeId: match.room.nodeId,
@@ -1286,9 +1286,9 @@ export default function CampusMap({
                     : undefined;
                   const shapeManagedId = shapeRoomKey ?? (representedBuildingId ? buildingNameKey(representedBuildingId) : s.nodeId);
                   const shapeName = shapeRoomKey && matchingRoom?.room
-                    ? displayName(roomNames, shapeRoomKey, matchingRoom.room.label)
+                    ? displayName(roomNames, shapeRoomKey, s.label)
                     : representedBuildingId
-                    ? buildingDisplayName(roomNames, representedBuildingId, buildingData?.name ?? s.label)
+                    ? displayName(roomNames, buildingNameKey(representedBuildingId), s.label)
                     : displayName(roomNames, s.nodeId, s.label);
                   const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
                   const shapeLabelLayout = fitMapLabel(
