@@ -9,6 +9,7 @@ import {
   resetTeacherPassword,
   updateTeacherAccount,
 } from "@/lib/teacherAccounts";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ function releaseTeacherRooms(displayName: string) {
  * or { resetPassword: true } to generate a temporary password, which is
  * returned once in the response.
  */
-export async function PATCH(request: NextRequest, context: Context) {
+async function handlePATCH(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
@@ -72,7 +73,7 @@ export async function PATCH(request: NextRequest, context: Context) {
   return NextResponse.json({ account: result.value });
 }
 
-export async function DELETE(request: NextRequest, context: Context) {
+async function handleDELETE(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
@@ -84,3 +85,6 @@ export async function DELETE(request: NextRequest, context: Context) {
   unlinkTeacherSchedules(id);
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withSharedState(handlePATCH);
+export const DELETE = withSharedState(handleDELETE);

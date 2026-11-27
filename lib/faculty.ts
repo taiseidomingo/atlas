@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { DEPARTMENTS, isDepartment, type Department } from "./departments";
 import { campusGraph } from "./graph";
 import { findTeacherById } from "./teacherAccounts";
+import { markDirty, useKv } from "./storeMode";
 
 /**
  * Faculty schedules and department faculty areas (admin-managed).
@@ -80,6 +81,10 @@ function load(): FacultyData {
 
 function save(data: FacultyData) {
   store.atlasFaculty = data;
+  if (useKv) {
+    markDirty("faculty"); // saved to Redis at the end of the request (lib/persist.ts)
+    return;
+  }
   fs.mkdirSync(path.dirname(dataFile), { recursive: true });
   const tmp = `${dataFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: "utf8", mode: 0o600 });
@@ -90,6 +95,19 @@ type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const nodeExists = (id: unknown) => typeof id === "string" && campusGraph.nodes.some((n) => n.id === id);
+
+/** Snapshot for the shared store (lib/persist.ts). */
+export function exportFaculty(): FacultyData {
+  return load();
+}
+
+/** Replace in-memory schedules and areas with the shared store's copy. */
+export function importFaculty(saved: Partial<FacultyData> | null): void {
+  store.atlasFaculty = {
+    schedules: Array.isArray(saved?.schedules) ? saved.schedules : [],
+    areas: saved?.areas && typeof saved.areas === "object" ? saved.areas : { ...DEFAULT_AREAS },
+  };
+}
 
 // ---------------------------------------------------------------- schedules
 

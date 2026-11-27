@@ -3,10 +3,11 @@ import { requireAdmin } from "@/lib/auth";
 import { listDepartmentAreas, setDepartmentArea } from "@/lib/faculty";
 import { listLocationOptions } from "@/lib/locationOptions";
 import { listTeacherAccounts } from "@/lib/teacherAccounts";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const teachers = listTeacherAccounts();
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
 }
 
 /** Body: { department, location, nodeId } — an empty location clears the area. */
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const body = await request.json().catch(() => null);
@@ -39,3 +40,6 @@ export async function PATCH(request: NextRequest) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ area: result.value });
 }
+
+export const GET = withSharedState(handleGET);
+export const PATCH = withSharedState(handlePATCH);

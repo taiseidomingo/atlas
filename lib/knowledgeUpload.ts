@@ -19,7 +19,7 @@ export async function readUpload(
     const file = form.get("file");
     const title = String(form.get("title") ?? "").trim();
     if (!(file instanceof File)) return { error: "Choose a file to upload." };
-    if (file.size > MAX_UPLOAD_BYTES) return { error: "Files must be 10 MB or smaller." };
+    if (file.size > MAX_UPLOAD_BYTES) return { error: `Files must be ${MAX_UPLOAD_BYTES / 1024 / 1024} MB or smaller.` };
     const ext = extensionOf(file.name);
     if (!ext) return { error: `Unsupported file type. Use: ${SUPPORTED_EXTENSIONS.join(", ")}.` };
     return {

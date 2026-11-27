@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listEnvTeacherNames, requireAdmin, reservedUsernames } from "@/lib/auth";
 import { createTeacherAccount, listTeacherAccounts } from "@/lib/teacherAccounts";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
 // Teacher account records are admin-only. Password hashes never leave the server.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   return NextResponse.json(
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   );
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const body = await request.json().catch(() => null);
@@ -29,3 +30,6 @@ export async function POST(request: NextRequest) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ account: result.value }, { status: 201 });
 }
+
+export const GET = withSharedState(handleGET);
+export const POST = withSharedState(handlePOST);

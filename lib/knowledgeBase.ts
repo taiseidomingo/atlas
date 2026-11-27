@@ -2,14 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { extractText, type SupportedExtension } from "./documentText";
+import { kv } from "./kv";
+import { markDirty, useKv } from "./storeMode";
 
 /**
  * Admin-managed knowledge base for the chatbot.
  *
- * Layout (git-ignored runtime data):
+ * File mode (local / server with a disk; git-ignored runtime data):
  *   data/knowledge/index.json        document metadata
  *   data/knowledge/files/<id>.<ext>  original upload (admin download only)
  *   data/knowledge/text/<id>.txt     extracted plain text used for answers
+ * Redis mode (Vercel): the index is saved with the other stores by
+ * lib/persist.ts; each document's text and (small enough) original file are
+ * separate keys, written at the end of the request.
  * Files are stored under random ids, never under the uploaded file name.
  */
 export interface KnowledgeDoc {
@@ -21,52 +26,107 @@ export interface KnowledgeDoc {
   sha256: string;
   enabled: boolean;
   chars: number;
+  /** False when the original was too large to keep in Redis (text is kept). */
+  hasOriginal?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-export const MAX_TEXT_CHARS = 2_000_000;
+// Vercel rejects request bodies over 4.5 MB, and Redis values should stay
+// well under Upstash's request size limit.
+export const MAX_UPLOAD_BYTES = (useKv ? 4 : 10) * 1024 * 1024;
+export const MAX_TEXT_CHARS = useKv ? 700_000 : 2_000_000;
+const MAX_ORIGINAL_IN_KV = 700 * 1024;
+
+export const KV_TEXT_PREFIX = "atlas:kb:text:";
+export const KV_FILE_PREFIX = "atlas:kb:file:";
 
 const root = path.join(process.cwd(), "data", "knowledge");
 const indexFile = path.join(root, "index.json");
 const filesDir = path.join(root, "files");
 const textDir = path.join(root, "text");
 
-const store = globalThis as unknown as {
-  atlasKnowledge?: { docs: KnowledgeDoc[]; chunks: Chunk[] | null };
-};
+interface KnowledgeState {
+  docs: KnowledgeDoc[];
+  chunks: Chunk[] | null;
+  /** Extracted text by document id, tagged with the doc version it belongs to. */
+  texts: Map<string, { stamp: string; text: string }>;
+  /** Redis writes/deletes queued by this request (flushed by lib/persist.ts). */
+  pending: (string | number)[][];
+}
 
-function state() {
+const store = globalThis as unknown as { atlasKnowledge?: KnowledgeState };
+
+function state(): KnowledgeState {
   if (!store.atlasKnowledge) {
     let docs: KnowledgeDoc[] = [];
-    try {
-      const saved = JSON.parse(fs.readFileSync(indexFile, "utf8"));
-      if (Array.isArray(saved.docs)) docs = saved.docs;
-    } catch {
-      // created on first upload
+    if (!useKv) {
+      try {
+        const saved = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+        if (Array.isArray(saved.docs)) docs = saved.docs;
+      } catch {
+        // created on first upload
+      }
     }
-    store.atlasKnowledge = { docs, chunks: null };
+    store.atlasKnowledge = { docs, chunks: null, texts: new Map(), pending: [] };
   }
   return store.atlasKnowledge;
 }
 
+const stampOf = (doc: KnowledgeDoc) => `${doc.updatedAt}|${doc.sha256}`;
+
 function saveIndex(docs: KnowledgeDoc[]) {
+  state().docs = docs;
+  state().chunks = null; // rebuild search index lazily
+  if (useKv) {
+    markDirty("knowledge");
+    return;
+  }
   fs.mkdirSync(root, { recursive: true });
   const tmp = `${indexFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify({ docs }, null, 2), { encoding: "utf8", mode: 0o600 });
   fs.renameSync(tmp, indexFile);
-  state().docs = docs;
-  state().chunks = null; // rebuild search index lazily
 }
 
 const safeId = (id: string) => /^[0-9a-f-]{36}$/.test(id);
 const textPath = (id: string) => path.join(textDir, `${id}.txt`);
-const filePath = (doc: KnowledgeDoc) => path.join(filesDir, `${doc.id}.${doc.ext === "text" ? "txt" : doc.ext}`);
+const extOf = (doc: KnowledgeDoc) => (doc.ext === "text" ? "txt" : doc.ext);
+const filePath = (doc: KnowledgeDoc) => path.join(filesDir, `${doc.id}.${extOf(doc)}`);
 
 function writePrivate(file: string, data: Buffer | string) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, data, { mode: 0o600 });
+}
+
+/** Store a document's text and original file (disk, or queued for Redis). */
+function storeContent(doc: KnowledgeDoc, text: string, buffer: Buffer) {
+  state().texts.set(doc.id, { stamp: stampOf(doc), text });
+  if (useKv) {
+    state().pending.push(["SET", KV_TEXT_PREFIX + doc.id, text]);
+    state().pending.push(
+      doc.hasOriginal
+        ? ["SET", KV_FILE_PREFIX + doc.id, buffer.toString("base64")]
+        : ["DEL", KV_FILE_PREFIX + doc.id],
+    );
+    markDirty("knowledge");
+    return;
+  }
+  writePrivate(filePath(doc), buffer);
+  writePrivate(textPath(doc.id), text);
+}
+
+function removeContent(doc: KnowledgeDoc) {
+  state().texts.delete(doc.id);
+  if (useKv) {
+    state().pending.push(["DEL", KV_TEXT_PREFIX + doc.id, KV_FILE_PREFIX + doc.id]);
+    markDirty("knowledge");
+    return;
+  }
+  for (const file of [filePath(doc), textPath(doc.id)]) {
+    try {
+      fs.unlinkSync(file);
+    } catch {}
+  }
 }
 
 export function listDocs(): KnowledgeDoc[] {
@@ -78,23 +138,72 @@ export function getDoc(id: string): KnowledgeDoc | null {
 }
 
 export function getDocText(id: string): string | null {
-  if (!getDoc(id)) return null;
+  const doc = getDoc(id);
+  if (!doc) return null;
+  const cached = state().texts.get(id);
+  if (cached && cached.stamp === stampOf(doc)) return cached.text;
+  if (useKv) return null; // loaded by lib/persist.ts before the request runs
   try {
-    return fs.readFileSync(textPath(id), "utf8");
+    const text = fs.readFileSync(textPath(id), "utf8");
+    state().texts.set(id, { stamp: stampOf(doc), text });
+    return text;
   } catch {
     return null;
   }
 }
 
-export function getDocFile(id: string): { doc: KnowledgeDoc; data: Buffer } | null {
+export async function getDocFile(id: string): Promise<{ doc: KnowledgeDoc; data: Buffer } | null> {
   const doc = getDoc(id);
-  if (!doc) return null;
+  if (!doc || doc.hasOriginal === false) return null;
   try {
+    if (useKv) {
+      const b64 = await kv(["GET", KV_FILE_PREFIX + id]);
+      return typeof b64 === "string" ? { doc, data: Buffer.from(b64, "base64") } : null;
+    }
     return { doc, data: fs.readFileSync(filePath(doc)) };
   } catch {
     return null;
   }
 }
+
+// --- Shared-store hooks (lib/persist.ts) -----------------------------------
+
+export function exportKnowledgeIndex(): KnowledgeDoc[] {
+  return state().docs;
+}
+
+export function importKnowledgeIndex(docs: unknown): void {
+  const s = state();
+  const next = Array.isArray(docs) ? (docs as KnowledgeDoc[]) : [];
+  const signature = (list: KnowledgeDoc[]) =>
+    list.map((d) => `${d.id}|${stampOf(d)}|${d.enabled}`).join(",");
+  if (signature(next) !== signature(s.docs)) s.chunks = null;
+  s.docs = next;
+}
+
+/** Documents whose text is not cached in this server instance yet. */
+export function docsMissingText(): KnowledgeDoc[] {
+  const s = state();
+  return s.docs.filter((d) => s.texts.get(d.id)?.stamp !== stampOf(d));
+}
+
+export function cacheDocTexts(entries: { doc: KnowledgeDoc; text: unknown }[]): void {
+  const s = state();
+  entries.forEach(({ doc, text }) => {
+    if (typeof text === "string") s.texts.set(doc.id, { stamp: stampOf(doc), text });
+  });
+  if (entries.length) s.chunks = null;
+}
+
+/** Redis writes queued by this request; the queue is emptied. */
+export function takeKnowledgeWrites(): (string | number)[][] {
+  const s = state();
+  const pending = s.pending;
+  s.pending = [];
+  return pending;
+}
+
+// --- Editing ----------------------------------------------------------------
 
 type Source = { kind: "file"; buffer: Buffer; fileName: string; ext: SupportedExtension } | { kind: "text"; text: string };
 
@@ -109,8 +218,21 @@ async function textFrom(source: Source): Promise<{ text: string; buffer: Buffer;
 
 function validateText(text: string): string | null {
   if (text.replace(/\s/g, "").length < 10) return "No readable text was found in this document.";
-  if (text.length > MAX_TEXT_CHARS) return "This document has too much text (limit 2 million characters).";
+  if (text.length > MAX_TEXT_CHARS) {
+    return `This document has too much text (limit ${MAX_TEXT_CHARS.toLocaleString()} characters). Split it into smaller documents.`;
+  }
   return null;
+}
+
+function contentFields(buffer: Buffer, text: string, ext: KnowledgeDoc["ext"], fileName: string) {
+  return {
+    ext,
+    fileName: fileName.slice(0, 200),
+    size: buffer.length,
+    sha256: createHash("sha256").update(buffer).digest("hex"),
+    chars: text.length,
+    hasOriginal: !useKv || buffer.length <= MAX_ORIGINAL_IN_KV,
+  };
 }
 
 export async function addDoc(title: string, source: Source): Promise<{ ok: true; doc: KnowledgeDoc } | { ok: false; error: string }> {
@@ -121,17 +243,12 @@ export async function addDoc(title: string, source: Source): Promise<{ ok: true;
   const doc: KnowledgeDoc = {
     id: randomUUID(),
     title: title.trim().slice(0, 120) || fileName,
-    fileName: fileName.slice(0, 200),
-    ext,
-    size: buffer.length,
-    sha256: createHash("sha256").update(buffer).digest("hex"),
+    ...contentFields(buffer, text, ext, fileName),
     enabled: true,
-    chars: text.length,
     createdAt: now,
     updatedAt: now,
   };
-  writePrivate(filePath(doc), buffer);
-  writePrivate(textPath(doc.id), text);
+  storeContent(doc, text, buffer);
   saveIndex([...state().docs, doc]);
   return { ok: true, doc };
 }
@@ -153,18 +270,13 @@ export async function updateDoc(
     const { text, buffer, ext, fileName } = await textFrom(changes.source);
     const error = validateText(text);
     if (error) return { ok: false, error };
-    try {
-      fs.unlinkSync(filePath(current));
-    } catch {}
-    Object.assign(next, {
-      ext,
-      fileName: fileName.slice(0, 200),
-      size: buffer.length,
-      sha256: createHash("sha256").update(buffer).digest("hex"),
-      chars: text.length,
-    });
-    writePrivate(filePath(next), buffer);
-    writePrivate(textPath(id), text);
+    removeContent(current);
+    Object.assign(next, contentFields(buffer, text, ext, fileName));
+    storeContent(next, text, buffer);
+  } else {
+    // Same content, new version stamp: keep the cached text valid.
+    const text = getDocText(id);
+    if (text !== null) state().texts.set(id, { stamp: stampOf(next), text });
   }
   saveIndex(state().docs.map((d) => (d.id === id ? next : d)));
   return { ok: true, doc: next };
@@ -173,11 +285,7 @@ export async function updateDoc(
 export function deleteDoc(id: string): boolean {
   const doc = getDoc(id);
   if (!doc) return false;
-  for (const file of [filePath(doc), textPath(id)]) {
-    try {
-      fs.unlinkSync(file);
-    } catch {}
-  }
+  removeContent(doc);
   saveIndex(state().docs.filter((d) => d.id !== id));
   return true;
 }

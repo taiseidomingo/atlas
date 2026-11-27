@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProfessorIdentity, getSession } from "./auth";
 import { claimRoom, listReservations, releaseRoom } from "./reservation";
 import { listRenamedRoomNames } from "./roomAdmin";
+import { withSharedState } from "./persist";
 
-export async function GET() {
+async function handleGET() {
   return NextResponse.json({
     reservations: listReservations(),
     roomNames: listRenamedRoomNames(),
   });
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const session = getSession(request);
   const teacher = session?.name ?? null;
   if (!teacher)
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
   );
 }
 
-export async function DELETE(request: NextRequest) {
+async function handleDELETE(request: NextRequest) {
   const session = getSession(request);
   const teacher = session?.name ?? null;
   if (!teacher)
@@ -80,3 +81,7 @@ export async function DELETE(request: NextRequest) {
     );
   return NextResponse.json({ released: nodeId });
 }
+
+export const GET = withSharedState(handleGET);
+export const POST = withSharedState(handlePOST);
+export const DELETE = withSharedState(handleDELETE);

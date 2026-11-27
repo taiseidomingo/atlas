@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { clearSession, getTeacher } from "@/lib/auth";
 import { listReservations, releaseRoom } from "@/lib/reservation";
 import { finishProfessorActivities } from "@/lib/activityLog";
+import { withSharedState } from "@/lib/persist";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const teacher = getTeacher(request);
   if (teacher) {
     listReservations()
@@ -15,3 +16,5 @@ export async function POST(request: NextRequest) {
   clearSession(response);
   return response;
 }
+
+export const POST = withSharedState(handlePOST);

@@ -3,10 +3,11 @@ import { requireAdmin } from "@/lib/auth";
 import { ExtractionError, SUPPORTED_EXTENSIONS } from "@/lib/documentText";
 import { addDoc, listDocs, MAX_UPLOAD_BYTES } from "@/lib/knowledgeBase";
 import { readUpload } from "@/lib/knowledgeUpload";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   return NextResponse.json(
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
 }
 
 /** Add a document: multipart `file` (+ `title`) or JSON { title, text }. */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   try {
@@ -34,3 +35,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+
+export const GET = withSharedState(handleGET);
+export const POST = withSharedState(handlePOST);

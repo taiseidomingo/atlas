@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { deleteSchedule, updateSchedule } from "@/lib/faculty";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
 type Context = { params: Promise<{ id: string }> };
 
-export async function PATCH(request: NextRequest, context: Context) {
+async function handlePATCH(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
@@ -22,10 +23,13 @@ export async function PATCH(request: NextRequest, context: Context) {
   return NextResponse.json({ schedule: result.value });
 }
 
-export async function DELETE(request: NextRequest, context: Context) {
+async function handleDELETE(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
   if (!deleteSchedule(id)) return NextResponse.json({ error: "Schedule not found." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
+
+export const PATCH = withSharedState(handlePATCH);
+export const DELETE = withSharedState(handleDELETE);

@@ -12,6 +12,7 @@ interface KnowledgeDoc {
   size: number;
   enabled: boolean;
   chars: number;
+  hasOriginal?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +41,7 @@ export default function KnowledgeBase() {
   const [dragging, setDragging] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [dialogError, setDialogError] = useState("");
+  const [maxBytes, setMaxBytes] = useState(10 * 1024 * 1024);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<{ reply: string; sources: string[] } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -52,6 +54,7 @@ export default function KnowledgeBase() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setDocs(data.docs ?? []);
+      if (typeof data.maxBytes === "number") setMaxBytes(data.maxBytes);
     } catch {
       setNotice({ kind: "error", text: "Couldn't load the knowledge base." });
     } finally {
@@ -91,6 +94,10 @@ export default function KnowledgeBase() {
   const upload = async (e: FormEvent) => {
     e.preventDefault();
     if (!file) return;
+    if (file.size > maxBytes) {
+      setNotice({ kind: "error", text: `Files must be ${Math.round(maxBytes / 1024 / 1024)} MB or smaller.` });
+      return;
+    }
     const form = new FormData();
     form.set("file", file);
     if (uploadTitle.trim()) form.set("title", uploadTitle.trim());
@@ -260,7 +267,7 @@ export default function KnowledgeBase() {
             <div>
               <h2 className={styles.panelTitle}>Upload a document</h2>
               <p className={styles.panelHint}>
-                PDF, Word (DOCX/DOC), PowerPoint (PPTX), OpenDocument, RTF, TXT, Markdown, CSV or HTML · up to 10 MB.
+                PDF, Word (DOCX/DOC), PowerPoint (PPTX), OpenDocument, RTF, TXT, Markdown, CSV or HTML · up to {Math.round(maxBytes / 1024 / 1024)} MB.
               </p>
             </div>
           </div>
@@ -421,6 +428,7 @@ export default function KnowledgeBase() {
                           Replace file
                         </button>
                       )}
+                      {doc.hasOriginal !== false && (
                       <a
                         className={styles.btnSm}
                         href={`/api/admin/knowledge/${doc.id}?download=1`}
@@ -429,6 +437,7 @@ export default function KnowledgeBase() {
                       >
                         <IconDownload size={14} />
                       </a>
+                      )}
                       <button type="button" className={styles.btnSm} onClick={() => toggle(doc)} disabled={busy}>
                         {doc.enabled ? "Disable" : "Enable"}
                       </button>

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { isDepartment } from "./departments";
+import { markDirty, useKv } from "./storeMode";
 
 /**
  * Teacher accounts managed from the Admin Dashboard.
@@ -56,6 +57,10 @@ function load(): TeacherAccount[] {
 
 function save(accounts: TeacherAccount[]): void {
   store.atlasTeachers = accounts;
+  if (useKv) {
+    markDirty("teachers"); // saved to Redis at the end of the request (lib/persist.ts)
+    return;
+  }
   fs.mkdirSync(path.dirname(dataFile), { recursive: true });
   const tmp = `${dataFile}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify({ accounts }, null, 2), {
@@ -63,6 +68,16 @@ function save(accounts: TeacherAccount[]): void {
     mode: 0o600,
   });
   fs.renameSync(tmp, dataFile);
+}
+
+/** Snapshot for the shared store (lib/persist.ts). Includes password hashes. */
+export function exportTeacherAccounts(): TeacherAccount[] {
+  return load();
+}
+
+/** Replace in-memory accounts with the shared store's copy. */
+export function importTeacherAccounts(accounts: unknown): void {
+  store.atlasTeachers = Array.isArray(accounts) ? (accounts as TeacherAccount[]) : [];
 }
 
 export function hashPassword(password: string): string {

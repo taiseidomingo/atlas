@@ -4,6 +4,7 @@ import { campusGraph } from "./graph";
 import { getRoomName } from "./roomAdmin";
 import { relevantKnowledge, type KnowledgeHit } from "./knowledgeBase";
 import { answerProfessorQuestion } from "./professorLocator";
+import { withSharedState } from "./persist";
 
 export interface ChatNavigationRequest {
   startId?: string;
@@ -67,7 +68,7 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 const UNAVAILABLE =
   "I don't have that information in the campus knowledge base yet. Please check with the relevant campus office.";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const { message, destinationId } = body;
 
@@ -193,3 +194,5 @@ Rules:
 User: ${userMessage}
 Atlas:`;
 }
+
+export const POST = withSharedState(handlePOST);

@@ -1,6 +1,7 @@
 import { campusGraph, NodeId } from "./graph";
 import { getRoomName, recordRoomUse } from "./roomAdmin";
 import { finishRoomActivity, startRoomActivity } from "./activityLog";
+import { markDirty } from "./storeMode";
 
 export interface Reservation {
   nodeId: NodeId;
@@ -28,12 +29,28 @@ const reservations: Map<NodeId, Reservation> =
 
 // Release claims on locations that are no longer claimable (e.g. after a room
 // was reclassified as an office), closing their activity log entries.
-reservations.forEach((reservation, nodeId) => {
-  if (!campusGraph.nodes.some((n) => n.id === nodeId && n.claimable)) {
-    finishRoomActivity(nodeId, reservation.professor);
-    reservations.delete(nodeId);
-  }
-});
+function dropNonClassroomClaims(): void {
+  reservations.forEach((reservation, nodeId) => {
+    if (!campusGraph.nodes.some((n) => n.id === nodeId && n.claimable)) {
+      finishRoomActivity(nodeId, reservation.professor);
+      reservations.delete(nodeId);
+      markDirty("state");
+    }
+  });
+}
+dropNonClassroomClaims();
+
+/** Snapshot for the shared store (lib/persist.ts). */
+export function exportReservations(): Reservation[] {
+  return Array.from(reservations.values());
+}
+
+/** Replace in-memory claims with the shared store's copy. */
+export function importReservations(list: Reservation[]): void {
+  reservations.clear();
+  list.forEach((reservation) => reservations.set(reservation.nodeId, reservation));
+  dropNonClassroomClaims();
+}
 
 export function claimRoom(
   nodeId: NodeId,
@@ -56,6 +73,7 @@ export function claimRoom(
     if (r.professor === professor && id !== nodeId) {
       finishRoomActivity(id, professor);
       reservations.delete(id);
+      markDirty("state");
     }
   });
 
@@ -67,6 +85,7 @@ export function claimRoom(
     professorId,
   };
   reservations.set(nodeId, reservation);
+  markDirty("state");
   recordRoomUse(nodeId);
   startRoomActivity(nodeId, professor, professorId);
   return { ok: true, reservation };
@@ -81,6 +100,7 @@ export function releaseRoom(
   if (existing.professor !== professor) return "not_yours";
   finishRoomActivity(nodeId, professor);
   reservations.delete(nodeId);
+  markDirty("state");
   return "released";
 }
 

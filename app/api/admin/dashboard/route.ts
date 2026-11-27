@@ -4,8 +4,9 @@ import { listReservations } from "@/lib/reservation";
 import { getRoomName, renameRoom } from "@/lib/roomAdmin";
 import { campusGraph } from "@/lib/graph";
 import { filterActivities, listActivities } from "@/lib/activityLog";
+import { withSharedState } from "@/lib/persist";
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { searchParams } = new URL(request.url);
@@ -185,7 +186,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const body = await request.json().catch(() => ({}));
@@ -207,3 +208,6 @@ export async function PATCH(request: NextRequest) {
   }
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withSharedState(handleGET);
+export const PATCH = withSharedState(handlePATCH);

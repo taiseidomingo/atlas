@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminRequest } from "@/lib/auth";
 import { listManagedNameItems, listRenamedRoomNames, renameManagedName } from "@/lib/roomAdmin";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
 // Display names are public map data. The editable catalog is returned only to admins.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const admin = isAdminRequest(request);
   return NextResponse.json({
     names: listRenamedRoomNames(),
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
-export async function PATCH(request: NextRequest) {
+async function handlePATCH(request: NextRequest) {
   if (!isAdminRequest(request)) {
     return NextResponse.json({ error: "Admin access required." }, { status: 403 });
   }
@@ -48,3 +49,6 @@ export async function PATCH(request: NextRequest) {
     items: isAdminRequest(request) ? listManagedNameItems() : undefined,
   });
 }
+
+export const GET = withSharedState(handleGET);
+export const PATCH = withSharedState(handlePATCH);

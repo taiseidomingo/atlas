@@ -59,3 +59,6 @@ next-env.d.ts
 
 # chatbot knowledge base uploads
 /data/knowledge/
+
+# walkable-path trace overlays (regenerate with scripts/trace-walkable-paths.py)
+/scripts/out/*.png

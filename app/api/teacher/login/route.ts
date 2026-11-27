@@ -5,10 +5,11 @@ import {
   recordLogin,
   verifyLogin,
 } from "@/lib/auth";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "local";
   if (loginLocked(ip)) {
@@ -34,3 +35,5 @@ export async function POST(request: NextRequest) {
   attachSession(response, login);
   return response;
 }
+
+export const POST = withSharedState(handlePOST);

@@ -3,6 +3,7 @@ import path from "node:path";
 import { campusGraph } from "./graph";
 import { getBuildingName, getFloorName, getRoomName } from "./roomAdmin";
 import { buildingById, buildingOfNode } from "./mapData";
+import { markDirty, useKv } from "./storeMode";
 
 export interface RoomActivity {
   id: string;
@@ -44,11 +45,25 @@ function readStore(): ActivityStore {
 }
 
 function writeStore(store: ActivityStore): void {
+  if (useKv) {
+    markDirty("state"); // saved to Redis at the end of the request (lib/persist.ts)
+    return;
+  }
   fs.mkdirSync(path.dirname(dataFile), { recursive: true });
   fs.writeFileSync(dataFile, JSON.stringify(store, null, 2), "utf8");
 }
 
 const store = readStore();
+
+/** Snapshot for the shared store (lib/persist.ts). */
+export function exportActivities(): RoomActivity[] {
+  return store.activities;
+}
+
+/** Replace the in-memory log with the shared store's copy. */
+export function importActivities(activities: RoomActivity[]): void {
+  store.activities.splice(0, store.activities.length, ...activities);
+}
 
 export function startRoomActivity(
   nodeId: string,

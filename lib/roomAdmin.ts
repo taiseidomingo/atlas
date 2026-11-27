@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { campusGraph } from "./graph";
 import { buildings } from "./mapData";
+import { markDirty, useKv } from "./storeMode";
 
 export interface RoomUsage {
   id: string;
@@ -60,6 +61,10 @@ try {
 }
 
 function saveAdminData(): void {
+  if (useKv) {
+    markDirty("state"); // saved to Redis at the end of the request (lib/persist.ts)
+    return;
+  }
   fs.mkdirSync(path.dirname(adminDataFile), { recursive: true });
   const temporaryFile = `${adminDataFile}.tmp`;
   fs.writeFileSync(
@@ -75,6 +80,32 @@ function saveAdminData(): void {
     "utf8",
   );
   fs.renameSync(temporaryFile, adminDataFile);
+}
+
+/** Snapshot for the shared store (lib/persist.ts). */
+export function exportAdminState(): {
+  names: Record<string, string>;
+  uses: Record<string, number>;
+} {
+  return {
+    names: Object.fromEntries(roomNames),
+    uses: Object.fromEntries(roomUses),
+  };
+}
+
+/** Replace in-memory names and use counts with the shared store's copy. */
+export function importAdminState(
+  names: Record<string, string>,
+  uses: Record<string, number>,
+): void {
+  roomNames.clear();
+  Object.entries(names).forEach(([id, name]) => {
+    if (typeof name === "string") roomNames.set(id, name);
+  });
+  roomUses.clear();
+  Object.entries(uses).forEach(([id, count]) => {
+    if (typeof count === "number") roomUses.set(id, count);
+  });
 }
 
 export function floorNameKey(buildingId: string, floor: number): string {

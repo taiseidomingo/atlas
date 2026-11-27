@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import { ExtractionError } from "@/lib/documentText";
 import { deleteDoc, getDoc, getDocFile, getDocText, updateDoc } from "@/lib/knowledgeBase";
 import { readUpload } from "@/lib/knowledgeUpload";
+import { withSharedState } from "@/lib/persist";
 
 export const runtime = "nodejs";
 
@@ -19,15 +20,20 @@ const MIME: Record<string, string> = {
 };
 
 /** Extracted text (default) or ?download=1 for the original file. Admin only. */
-export async function GET(request: NextRequest, context: Context) {
+async function handleGET(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
   const doc = getDoc(id);
   if (!doc) return NextResponse.json({ error: "Document not found." }, { status: 404 });
   if (new URL(request.url).searchParams.get("download")) {
-    const file = getDocFile(id);
-    if (!file) return NextResponse.json({ error: "Original file is missing." }, { status: 404 });
+    const file = await getDocFile(id);
+    if (!file) {
+      return NextResponse.json(
+        { error: doc.hasOriginal === false ? "The original file was too large to keep; its extracted text is still used." : "Original file is missing." },
+        { status: 404 },
+      );
+    }
     const ext = doc.ext === "text" ? "txt" : doc.ext;
     const base = doc.title.replace(/[^\w.\- ]+/g, "_").slice(0, 80) || "document";
     return new NextResponse(new Uint8Array(file.data), {
@@ -47,7 +53,7 @@ export async function GET(request: NextRequest, context: Context) {
  * JSON { title?, enabled?, text? } to edit, or multipart `file` to replace
  * the document's content (text is re-extracted).
  */
-export async function PATCH(request: NextRequest, context: Context) {
+async function handlePATCH(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
@@ -76,10 +82,14 @@ export async function PATCH(request: NextRequest, context: Context) {
   }
 }
 
-export async function DELETE(request: NextRequest, context: Context) {
+async function handleDELETE(request: NextRequest, context: Context) {
   const denied = requireAdmin(request);
   if (denied) return denied;
   const { id } = await context.params;
   if (!deleteDoc(id)) return NextResponse.json({ error: "Document not found." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
+
+export const GET = withSharedState(handleGET);
+export const PATCH = withSharedState(handlePATCH);
+export const DELETE = withSharedState(handleDELETE);
