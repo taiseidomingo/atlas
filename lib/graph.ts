@@ -101,7 +101,55 @@ function buildCampusGraph(): CampusGraph {
 
   Object.keys(walkable.maps).sort().forEach(processMap);
 
+  bridgeTracingGaps();
+  addPassThroughDoors();
   addManualCampusWalkway();
+
+  /**
+   * The tracer sometimes splits one dashed line into two pieces whose ends
+   * almost touch (e.g. Old Building 1F, middle corridor at x≈3370: a 24px gap
+   * that forced every east-west route down to the bottom corridor). Join dots
+   * on the same map that are this close but not connected.
+   */
+  function bridgeTracingGaps(maxGapPx = 30) {
+    for (const map of Object.values(walkable.maps)) {
+      const dots = nodes.filter((n) => n.id.startsWith(`${map.prefix}-DOT-`));
+      for (let i = 0; i < dots.length; i++) {
+        for (let j = i + 1; j < dots.length; j++) {
+          if (Math.hypot(dots[i].x - dots[j].x, dots[i].y - dots[j].y) <= maxGapPx) {
+            addEdge(dots[i].id, dots[j].id);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Rooms people walk straight through. The dashed walkway stops at the
+   * room's wall on both sides, so give the room a second door on the far
+   * side; routes then cross the room instead of dead-ending.
+   */
+  function addPassThroughDoors() {
+    const passThrough: { roomId: string; prefix: string; x: number; y: number }[] = [
+      // Old Building Floor 2.2: CL North/South side <-> main corridor.
+      { roomId: "OB-2.2-RM212", prefix: "OB-3", x: 2152, y: 2924 },
+      { roomId: "OB-2.2-RM213", prefix: "OB-3", x: 5800, y: 2928 },
+    ];
+    for (const { roomId, prefix, x, y } of passThrough) {
+      const dot = nodes
+        .filter((n) => n.id.startsWith(`${prefix}-DOT-`))
+        .reduce<GraphNode | null>(
+          (best, n) =>
+            !best || Math.hypot(n.x - x, n.y - y) < Math.hypot(best.x - x, best.y - y) ? n : best,
+          null,
+        );
+      if (!dot || Math.hypot(dot.x - x, dot.y - y) > 40) {
+        console.warn(`[graph] pass-through door for ${roomId}: no walkway near (${x}, ${y})`);
+        continue;
+      }
+      doorsOf.set(roomId, [...(doorsOf.get(roomId) ?? []), dot.id]);
+    }
+  }
 
   /**
    * Hand-surveyed walkway nodes on the Campus Map Overview (map 01) that the

@@ -1447,9 +1447,6 @@ export default function CampusMap({
                           s.label,
                         )
                       : displayName(roomNames, s.nodeId, s.label);
-                  const shapeHasOverride = !!(
-                    shapeManagedId && roomNames[shapeManagedId]
-                  );
                   const shapeClipId = `campus-label-${s.id}`.replace(
                     /[^a-zA-Z0-9_-]/g,
                     "-",
@@ -1534,11 +1531,9 @@ export default function CampusMap({
                         clipPath={`url(#${shapeClipId})`}
                         x={cx}
                         y={cy}
-                        className={
-                          campusMap01 && !shapeHasOverride
-                            ? styles.imageLabelHidden
-                            : styles.label
-                        }
+                        // The map images carry no text, so every shape shows
+                        // its saved name, or its default name when none is saved.
+                        className={styles.label}
                         fontSize={shapeLabelLayout.fontSize}
                         textAnchor="middle"
                         dominantBaseline="central"
@@ -1673,11 +1668,7 @@ export default function CampusMap({
                           clipPath={`url(#${buildingClipId})`}
                           x={cx}
                           y={cy}
-                          className={
-                            roomNames[buildingNameKey(b.id)]
-                              ? styles.label
-                              : styles.imageLabelHidden
-                          }
+                          className={styles.label}
                           fontSize={buildingLabelLayout.fontSize}
                           textAnchor="middle"
                           dominantBaseline="central"
@@ -2026,9 +2017,7 @@ export default function CampusMap({
                               dominantBaseline="central"
                               className={
                                 indoorImage
-                                  ? roomNames[managedRoomId]
-                                    ? styles.roomNameOverlay
-                                    : styles.imageLabelHidden
+                                  ? styles.roomNameOverlay
                                   : room.placeholder
                                   ? styles.labelMuted
                                   : styles.label
