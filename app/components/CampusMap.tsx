@@ -37,7 +37,7 @@ import {
 import type { BuildingId, CampusShape, PlanRoom, Rect } from "@/lib/mapData";
 import {
   buildingDisplayName, buildingNameKey, displayName, fitMapLabel,
-  floorDisplayName, syntheticRoomNameKey,
+  floorDisplayName, floorNameKey, syntheticRoomNameKey,
 } from "@/lib/locationNames";
 
 type Phase = "campus" | "in" | "building" | "out";
@@ -2005,9 +2005,10 @@ export default function CampusMap({
                         setFloor(f.floor);
                       }}
                     >
-                      {buildingId === "old"
-                        ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
-                        : `${f.floor}F`}
+                      {roomNames[floorNameKey(buildingId, f.floor)] ??
+                        (buildingId === "old"
+                          ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
+                          : `${f.floor}F`)}
                     </button>
                   ))}
               </div>
