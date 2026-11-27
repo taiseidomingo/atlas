@@ -35,6 +35,10 @@ import {
   planViewBox,
 } from "@/lib/mapData";
 import type { BuildingId, CampusShape, PlanRoom, Rect } from "@/lib/mapData";
+import {
+  buildingDisplayName, buildingNameKey, displayName, fitMapLabel,
+  floorDisplayName, syntheticRoomNameKey,
+} from "@/lib/locationNames";
 
 type Phase = "campus" | "in" | "building" | "out";
 type Pt = { x: number; y: number };
@@ -52,6 +56,16 @@ type BuilderCoordinates = {
   y: number;
   displayX: number;
   displayY: number;
+};
+type AdminNameItem = {
+  id: string;
+  kind: "building" | "floor" | "room" | "area";
+  name: string;
+  fallbackName: string;
+  context: string;
+  buildingId?: BuildingId;
+  floor?: number;
+  nodeId?: string;
 };
 
 const nodeById = routingNodeById;
@@ -422,6 +436,10 @@ export default function CampusMap({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [claims, setClaims] = useState<Record<string, string>>({});
   const [roomNames, setRoomNames] = useState<Record<string, string>>({});
+  const [managedItems, setManagedItems] = useState<AdminNameItem[]>([]);
+  const [selectedManagedId, setSelectedManagedId] = useState<string | null>(null);
+  const [nameSearch, setNameSearch] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [roomEditingMode, setRoomEditingMode] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
@@ -511,17 +529,25 @@ export default function CampusMap({
           },
         );
         setClaims(next);
-        setRoomNames(
-          data.roomNames && typeof data.roomNames === "object"
-            ? data.roomNames
-            : {},
-        );
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [selectedId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/names")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        if (data.names && typeof data.names === "object") setRoomNames(data.names);
+        if (Array.isArray(data.items)) setManagedItems(data.items);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   const clearPins = useCallback(() => {
     setStartId(null);
@@ -747,15 +773,95 @@ export default function CampusMap({
     }
   };
 
+  const selectManagedLocation = (
+    id: string,
+    fallbackName: string,
+    location?: {
+      buildingId?: BuildingId;
+      floor?: number;
+      nodeId?: string;
+      kind?: AdminNameItem["kind"];
+    },
+  ) => {
+    if (!isAdmin || !roomEditingMode) return;
+    const current = managedItems.find((item) => item.id === id);
+    const name = roomNames[id] ?? current?.name ?? fallbackName;
+    if (
+      editingRoomId &&
+      editingRoomId !== id &&
+      editingRoomName !== editingRoomOriginalName &&
+      !window.confirm("Discard unsaved name changes?")
+    ) return;
+
+    setSelectedManagedId(id);
+    setEditingRoomId(id);
+    setEditingRoomName(name);
+    setEditingRoomOriginalName(name);
+    setRoomNameError("");
+
+    const buildingTarget = location?.buildingId ?? current?.buildingId;
+    const floorTarget = location?.floor ?? current?.floor;
+    if (location?.kind === "building" || current?.kind === "building") {
+      setSelectedId(null);
+      if (phase !== "campus") backToCampus();
+      return;
+    }
+    if (buildingTarget) {
+      setSelectedId(location?.nodeId ?? current?.nodeId ?? null);
+      if (phase === "campus" || phase === "out" || phase === "in") {
+        enterBuilding(buildingTarget, floorTarget ?? 1);
+      } else {
+        setBuildingId(buildingTarget);
+        setFloor(floorTarget ?? 1);
+      }
+    } else {
+      setSelectedId(location?.nodeId ?? current?.nodeId ?? id);
+    }
+  };
+
+  const selectManagedItem = (item: AdminNameItem) => {
+    selectManagedLocation(item.id, item.name, {
+      buildingId: item.buildingId,
+      floor: item.floor,
+      nodeId: item.nodeId,
+      kind: item.kind,
+    });
+  };
+
   const onShapeClick = (shape: CampusShape) => {
     if (builderMode) return;
     if (phase !== "campus") return;
+    if (isAdmin && roomEditingMode) {
+      if (shape.buildingId) {
+        const buildingData = buildings.find((candidate) => candidate.id === shape.buildingId);
+        const match = buildingData?.floors
+          .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === shape.id) }))
+          .find((entry) => !!entry.room);
+        if (match?.room) {
+          const id = match.room.nodeId ?? syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
+          selectManagedLocation(id, match.room.label.replace(/\n/g, " "), {
+            buildingId: shape.buildingId,
+            floor: match.floor,
+            nodeId: match.room.nodeId,
+            kind: "room",
+          });
+        } else {
+          const fallback = buildingData?.name ?? shape.label;
+          selectManagedLocation(buildingNameKey(shape.buildingId), fallback, {
+            buildingId: shape.buildingId,
+            kind: "building",
+          });
+        }
+      } else if (shape.nodeId) {
+        selectManagedLocation(shape.nodeId, shape.label, { nodeId: shape.nodeId, kind: "area" });
+      }
+      return;
+    }
     if (shape.buildingId) {
       enterBuilding(shape.buildingId);
       return;
     }
-    if (!shape.nodeId) return;
-    pick(shape.nodeId);
+    if (shape.nodeId) pick(shape.nodeId);
   };
 
   const selectNode = (id: string) => {
@@ -816,25 +922,33 @@ export default function CampusMap({
   }, [roomEditingMode, exitRoomEditingMode]);
 
   const saveRoomNameEdit = async () => {
-    if (!editingRoomId) return;
+    if (!isAdmin || !editingRoomId || nameSaving) return;
     const name = editingRoomName.trim();
-    if (!name) {
-      setRoomNameError("Room name cannot be empty.");
-      return;
-    }
-    const response = await fetch("/api/admin/dashboard", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodeId: editingRoomId, name }),
-    });
-    if (!response.ok) {
+    if (!name) return setRoomNameError("Name cannot be empty.");
+    if (name.length > 100) return setRoomNameError("Names must be 100 characters or fewer.");
+    setNameSaving(true);
+    setRoomNameError("");
+    try {
+      const response = await fetch("/api/admin/names", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingRoomId, name }),
+      });
       const data = await response.json().catch(() => ({}));
-      setRoomNameError(data.error ?? "Could not save room name.");
-      return;
+      if (!response.ok) {
+        setRoomNameError(data.error ?? "Could not save this name.");
+        return;
+      }
+      if (data.names && typeof data.names === "object") setRoomNames(data.names);
+      else setRoomNames((current) => ({ ...current, [editingRoomId]: name }));
+      if (Array.isArray(data.items)) setManagedItems(data.items);
+      setEditingRoomName(name);
+      setEditingRoomOriginalName(name);
+    } catch {
+      setRoomNameError("Could not reach the server. Please try again.");
+    } finally {
+      setNameSaving(false);
     }
-    setRoomNames((current) => ({ ...current, [editingRoomId]: name }));
-    setEditingRoomOriginalName(name);
-    cancelRoomNameEdit();
   };
 
   useEffect(() => {
@@ -926,10 +1040,16 @@ export default function CampusMap({
           : ""),
     )
     .join("\n");
+  const currentBuildingName = buildingDisplayName(roomNames, buildingId, building.name);
+  const currentFloorName = floorDisplayName(roomNames, buildingId, floor, plan.name);
   const phaseLabel =
     phase === "building" || phase === "out" || phase === "in"
-      ? `${building.name}, ${plan.name}`
+      ? `${currentBuildingName}, ${currentFloorName}`
       : "Campus overview";
+  const visibleManagedItems = managedItems.filter((item) =>
+    `${item.name} ${item.context} ${item.id}`.toLowerCase().includes(nameSearch.trim().toLowerCase()),
+  );
+  const selectedManagedItem = managedItems.find((item) => item.id === selectedManagedId);
 
   return (
     <div className={styles.root}>
@@ -1043,6 +1163,18 @@ export default function CampusMap({
                 })}
 
                 {campusShapes.map((s) => {
+                  const buildingData = s.buildingId ? buildings.find((candidate) => candidate.id === s.buildingId) : undefined;
+                  const matchingRoom = buildingData?.floors
+                    .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === s.id) }))
+                    .find((entry) => !!entry.room);
+                  const shapeRoomKey = matchingRoom?.room && s.buildingId
+                    ? matchingRoom.room.nodeId ?? syntheticRoomNameKey(s.buildingId, matchingRoom.floor, matchingRoom.room.id)
+                    : undefined;
+                  const shapeName = shapeRoomKey && matchingRoom?.room
+                    ? displayName(roomNames, shapeRoomKey, matchingRoom.room.label)
+                    : s.buildingId
+                    ? buildingDisplayName(roomNames, s.buildingId, buildingData?.name ?? s.label)
+                    : displayName(roomNames, s.nodeId, s.label);
                   const kind = pinKind(s.nodeId);
                   const selectable = !!s.nodeId || !!s.buildingId;
                   const cls = [
@@ -1095,9 +1227,9 @@ export default function CampusMap({
                           s.vertical ? `rotate(-90 ${cx} ${cy})` : undefined
                         }
                       >
-                        {s.label}
+                        {shapeName}
                       </text>
-                      <title>{s.label}</title>
+                      <title>{shapeName}</title>
                     </g>
                   );
                 })}
@@ -1118,17 +1250,32 @@ export default function CampusMap({
                       <g
                         key={b.id}
                         onClick={() => {
-                          if (!builderMode && phase === "campus") {
+                          if (builderMode || phase !== "campus") return;
+                          if (isAdmin && roomEditingMode) {
+                            selectManagedLocation(buildingNameKey(b.id), buildingDisplayName(roomNames, b.id, b.name), {
+                              buildingId: b.id,
+                              kind: "building",
+                            });
+                          } else {
                             enterBuilding(b.id);
                           }
                         }}
                         role="button"
                         tabIndex={0}
-                        aria-label={`${b.name}, open floor plans`}
+                        aria-label={`${buildingDisplayName(roomNames, b.id, b.name)}, open floor plans`}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            if (phase === "campus") enterBuilding(b.id);
+                            if (phase === "campus") {
+                              if (isAdmin && roomEditingMode) {
+                                selectManagedLocation(buildingNameKey(b.id), buildingDisplayName(roomNames, b.id, b.name), {
+                                  buildingId: b.id,
+                                  kind: "building",
+                                });
+                              } else {
+                                enterBuilding(b.id);
+                              }
+                            }
                           }
                         }}
                       >
@@ -1163,7 +1310,7 @@ export default function CampusMap({
                         >
                           Tap to enter
                         </text>
-                        <title>{`${b.name}: click to see the floor plans`}</title>
+                        <title>{`${buildingDisplayName(roomNames, b.id, b.name)}: click to see the floor plans`}</title>
                       </g>
                     );
                   })}
@@ -1353,25 +1500,16 @@ export default function CampusMap({
                         : imageRoomRect(buildingId, floor, room.id)
                       : planRect(room);
                     if (!r) return null;
-                    const displayRoomName =
-                      room.nodeId && roomNames[room.nodeId]
-                        ? roomNames[room.nodeId]
-                        : room.label;
-                    const lines = displayRoomName
-                      ? displayRoomName.split("\n")
-                      : [];
-                    const longest = Math.max(1, ...lines.map((l) => l.length));
-                    const fs = Math.max(
-                      18,
-                      Math.min(
-                        46,
-                        (r.w * 0.88) / (0.6 * longest),
-                        (r.h * 0.7) / Math.max(1, lines.length),
-                      ),
-                    );
+                    const managedRoomId = room.nodeId ?? syntheticRoomNameKey(buildingId, floor, room.id);
+                    const displayRoomName = displayName(roomNames, managedRoomId, room.label);
+                    const labelLayout = fitMapLabel(displayRoomName, r.w, r.h);
+                    const lines = labelLayout.lines;
+                    const fs = labelLayout.fontSize;
+                    const roomClipId = `room-label-${buildingId}-${floor}-${room.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
                     const selectable =
-                      !!room.nodeId &&
-                      (isSelectableNode(room.nodeId) || !!room.openBuildingId);
+                      roomEditingMode ||
+                      (!!room.nodeId &&
+                        (isSelectableNode(room.nodeId) || !!room.openBuildingId));
                     const kind = pinKind(room.nodeId);
                     const cls = [
                       indoorImage ? styles.imageHitbox : styles.room,
@@ -1382,7 +1520,8 @@ export default function CampusMap({
                           ? styles.roomOccupied
                           : styles.roomAvailable
                         : "",
-                      selectedId && selectedId === room.nodeId
+                      ((selectedId && selectedId === room.nodeId) ||
+                        (roomEditingMode && selectedManagedId === managedRoomId))
                         ? styles.isSelected
                         : "",
                       kind === "start" ? styles.isStart : "",
@@ -1395,8 +1534,13 @@ export default function CampusMap({
                         key={room.id}
                         onClick={() => {
                           if (builderMode) return;
-                          if (isAdmin && roomEditingMode && room.nodeId) {
-                            beginRoomNameEdit(room);
+                          if (isAdmin && roomEditingMode) {
+                            selectManagedLocation(managedRoomId, displayRoomName, {
+                              buildingId,
+                              floor,
+                              nodeId: room.nodeId,
+                              kind: "room",
+                            });
                             return;
                           }
                           if (room.openBuildingId) {
@@ -1422,8 +1566,13 @@ export default function CampusMap({
                             (e.key === "Enter" || e.key === " ")
                           ) {
                             e.preventDefault();
-                            if (isAdmin && roomEditingMode && room.nodeId) {
-                              beginRoomNameEdit(room);
+                            if (isAdmin && roomEditingMode) {
+                              selectManagedLocation(managedRoomId, displayRoomName, {
+                                buildingId,
+                                floor,
+                                nodeId: room.nodeId,
+                                kind: "room",
+                              });
                               return;
                             }
                             if (room.openBuildingId) {
@@ -1445,113 +1594,42 @@ export default function CampusMap({
                           rx={6}
                           className={cls}
                         />
-                        {isAdmin &&
-                          editingRoomId === room.nodeId &&
-                          room.nodeId && (
-                            <foreignObject
-                              x={r.x + r.w * 0.08}
-                              y={r.y + r.h * 0.28}
-                              width={r.w * 0.84}
-                              height={Math.max(64, r.h * 0.44)}
-                              onClick={(event) => event.stopPropagation()}
+                        <defs>
+                          <clipPath id={roomClipId}>
+                            <rect
+                              x={r.x + 4}
+                              y={r.y + 4}
+                              width={Math.max(1, r.w - 8)}
+                              height={Math.max(1, r.h - 8)}
+                            />
+                          </clipPath>
+                        </defs>
+                        <g clipPath={`url(#${roomClipId})`} pointerEvents="none">
+                          {lines.map((line, i) => (
+                            <text
+                              key={i}
+                              x={cx}
+                              y={cy + (i - (lines.length - 1) / 2) * fs * 1.18}
+                              fontSize={fs}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              className={
+                                indoorImage
+                                  ? roomNames[managedRoomId]
+                                    ? styles.roomNameOverlay
+                                    : styles.imageLabelHidden
+                                  : room.placeholder
+                                  ? styles.labelMuted
+                                  : styles.label
+                              }
                             >
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gap: 4,
-                                  padding: 6,
-                                  borderRadius: 8,
-                                  background: "rgba(255,255,255,0.96)",
-                                  boxShadow: "0 4px 16px rgba(15,23,42,0.25)",
-                                }}
-                              >
-                                <input
-                                  value={editingRoomName}
-                                  onChange={(event) =>
-                                    setEditingRoomName(event.target.value)
-                                  }
-                                  onKeyDown={(event) => {
-                                    if (event.key === "Enter")
-                                      saveRoomNameEdit();
-                                    if (event.key === "Escape")
-                                      cancelRoomNameEdit();
-                                  }}
-                                  autoFocus
-                                  style={{
-                                    width: "100%",
-                                    border: "1px solid #cbd5e1",
-                                    borderRadius: 6,
-                                    padding: "6px 8px",
-                                    fontSize: 14,
-                                  }}
-                                  aria-label="Room name"
-                                />
-                                <div style={{ display: "flex", gap: 4 }}>
-                                  <button
-                                    type="button"
-                                    onClick={saveRoomNameEdit}
-                                    style={{
-                                      flex: 1,
-                                      border: 0,
-                                      borderRadius: 6,
-                                      background: "#2433c4",
-                                      color: "#fff",
-                                      padding: "5px",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelRoomNameEdit}
-                                    style={{
-                                      flex: 1,
-                                      border: "1px solid #cbd5e1",
-                                      borderRadius: 6,
-                                      background: "#fff",
-                                      color: "#334155",
-                                      padding: "5px",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                                {roomNameError && (
-                                  <span
-                                    style={{ color: "#dc2626", fontSize: 11 }}
-                                  >
-                                    {roomNameError}
-                                  </span>
-                                )}
-                              </div>
-                            </foreignObject>
-                          )}
-                        {lines.map((line, i) => (
-                          <text
-                            key={i}
-                            x={cx}
-                            y={cy + (i - (lines.length - 1) / 2) * fs * 1.2}
-                            fontSize={fs}
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                            className={
-                              indoorImage
-                                ? roomNames[room.nodeId ?? ""]
-                                  ? styles.roomNameOverlay
-                                  : styles.imageLabelHidden
-                                : room.placeholder
-                                ? styles.labelMuted
-                                : styles.label
-                            }
-                          >
-                            {line}
-                          </text>
-                        ))}
+                              {line}
+                            </text>
+                          ))}
+                        </g>
                         {displayRoomName && (
                           <title>
-                            {displayRoomName.replace("\n", " ")}
+                            {displayRoomName}
                             {room.nodeId && nodeById.get(room.nodeId)?.claimable
                               ? ` - ${
                                   claims[room.nodeId] ? "Occupied" : "Available"
