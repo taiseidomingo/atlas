@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import CampusMap, { MapFocus, RouteSummary, buildSelectGroups } from "./CampusMap";
+import CampusMap, { MapFocus, RouteSummary, buildSelectGroups, selectGroups } from "./CampusMap";
 import PlaceCard from "./PlaceCard";
 import { buildingOfNode, buildingById } from "@/lib/mapData";
 import { buildingDisplayName, displayName, floorDisplayName } from "@/lib/locationNames";
