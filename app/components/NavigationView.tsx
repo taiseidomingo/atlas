@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import CampusMap, { MapFocus, RouteSummary, buildSelectGroups, selectGroups } from "./CampusMap";
 import PlaceCard from "./PlaceCard";
-import { buildingOfNode, buildingById } from "@/lib/mapData";
-import { buildingDisplayName, displayName, floorDisplayName } from "@/lib/locationNames";
+import { buildingOfNode } from "@/lib/mapData";
 import type { BuildingId } from "@/lib/mapData";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph } from "@/lib/routingGraph";
@@ -148,16 +147,10 @@ export default function NavigationView() {
     );
   };
 
-  const info = useMemo(() => {
-    if (!selected) return null;
-    const base = getPlaceInfo(selected);
-    if (!base) return null;
-    const name = displayName(names, selected, base.name);
-    const place = base.buildingId
-      ? `${buildingDisplayName(names, base.buildingId, buildingById[base.buildingId].name)}, ${floorDisplayName(names, base.buildingId, base.floor ?? 1, buildingById[base.buildingId].floors.find((floor) => floor.floor === (base.floor ?? 1))?.name ?? `Floor ${base.floor ?? 1}`)}`
-      : base.place;
-    return { ...base, name, place };
-  }, [selected, names]);
+  const info = useMemo(
+    () => (selected ? getPlaceInfo(selected, names) : null),
+    [selected, names],
+  );
 
   const select = (
     value: string | null,

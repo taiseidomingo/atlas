@@ -43,7 +43,7 @@ import {
 import type { BuildingId, CampusShape, PlanRoom, Rect } from "@/lib/mapData";
 import {
   buildingDisplayName, buildingNameKey, displayName, fitMapLabel,
-  floorDisplayName, syntheticRoomNameKey,
+  floorDisplayName, floorNameKey, syntheticRoomNameKey,
 } from "@/lib/locationNames";
 
 type Phase = "campus" | "in" | "building" | "out";
@@ -856,7 +856,7 @@ export default function CampusMap({
           .find((entry) => !!entry.room);
         if (match?.room) {
           const id = match.room.nodeId ?? syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
-          selectManagedLocation(id, match.room.label.replace(/\n/g, " "), {
+          selectManagedLocation(id, shape.label.replace(/\n/g, " "), {
             buildingId: shape.buildingId,
             floor: match.floor,
             nodeId: match.room.nodeId,
@@ -1293,11 +1293,12 @@ export default function CampusMap({
                     : undefined;
                   const shapeManagedId = shapeRoomKey ?? (representedBuildingId ? buildingNameKey(representedBuildingId) : s.nodeId);
                   const shapeName = shapeRoomKey && matchingRoom?.room
-                    ? displayName(roomNames, shapeRoomKey, matchingRoom.room.label)
+                    ? displayName(roomNames, shapeRoomKey, s.label)
                     : representedBuildingId
-                    ? buildingDisplayName(roomNames, representedBuildingId, buildingData?.name ?? s.label)
+                    ? displayName(roomNames, buildingNameKey(representedBuildingId), s.label)
                     : displayName(roomNames, s.nodeId, s.label);
                   const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
+                  const shapeClipId = `campus-label-${s.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
                   const shapeLabelLayout = fitMapLabel(
                     shapeName,
                     s.vertical ? s.h : s.w,
@@ -1310,10 +1311,7 @@ export default function CampusMap({
                     styles[`tone_${s.tone}`],
                     selectable ? styles.hoverable : "",
                     (selectedId && selectedId === s.nodeId) ||
-                    (roomEditingMode &&
-                      ((s.buildingId && selectedManagedId === buildingNameKey(s.buildingId)) ||
-                        (shapeRoomKey && selectedManagedId === shapeRoomKey) ||
-                        (s.nodeId && selectedManagedId === s.nodeId)))
+                    (roomEditingMode && shapeManagedId && selectedManagedId === shapeManagedId)
                       ? styles.isSelected
                       : "",
                     kind === "start" ? styles.isStart : "",
@@ -1353,7 +1351,18 @@ export default function CampusMap({
                             )
                           : cls}
                       />
+                      <defs>
+                        <clipPath id={shapeClipId} clipPathUnits="userSpaceOnUse">
+                          <rect
+                            x={s.x + 4}
+                            y={s.y + 4}
+                            width={Math.max(1, s.w - 8)}
+                            height={Math.max(1, s.h - 8)}
+                          />
+                        </clipPath>
+                      </defs>
                       <text
+                        clipPath={`url(#${shapeClipId})`}
                         x={cx}
                         y={cy}
                         className={
@@ -1391,6 +1400,7 @@ export default function CampusMap({
                     const cx = b.rect.x + b.rect.w / 2;
                     const cy = b.rect.y + b.rect.h / 2;
                     const buildingLabel = buildingDisplayName(roomNames, b.id, b.name);
+                    const buildingClipId = `building-label-${b.id}`;
                     const buildingLabelLayout = fitMapLabel(buildingLabel, b.rect.h, b.rect.w);
                     const hitRects =
                       b.id === "old"
@@ -1443,7 +1453,18 @@ export default function CampusMap({
                             className={`${styles.imageHitbox} ${roomEditingMode && selectedManagedId === buildingNameKey(b.id) ? styles.isSelected : ""}`}
                           />
                         ))}
+                        <defs>
+                          <clipPath id={buildingClipId} clipPathUnits="userSpaceOnUse">
+                            <rect
+                              x={b.rect.x + 4}
+                              y={b.rect.y + 4}
+                              width={Math.max(1, b.rect.w - 8)}
+                              height={Math.max(1, b.rect.h - 8)}
+                            />
+                          </clipPath>
+                        </defs>
                         <text
+                          clipPath={`url(#${buildingClipId})`}
                           x={cx}
                           y={cy - 10}
                           className={roomNames[buildingNameKey(b.id)] ? styles.label : styles.imageLabelHidden}
@@ -1991,9 +2012,10 @@ export default function CampusMap({
                         setFloor(f.floor);
                       }}
                     >
-                      {buildingId === "old"
-                        ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
-                        : `${f.floor}F`}
+                      {roomNames[floorNameKey(buildingId, f.floor)] ??
+                        (buildingId === "old"
+                          ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
+                          : `${f.floor}F`)}
                     </button>
                   ))}
               </div>
