@@ -843,8 +843,9 @@ export default function CampusMap({
     if (isAdmin && roomEditingMode) {
       if (shape.buildingId) {
         const buildingData = buildings.find((candidate) => candidate.id === shape.buildingId);
+        const matchingRoomId = shape.id === "gym-stage" ? "stage" : shape.id;
         const match = buildingData?.floors
-          .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === shape.id) }))
+          .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === matchingRoomId) }))
           .find((entry) => !!entry.room);
         if (match?.room) {
           const id = match.room.nodeId ?? syntheticRoomNameKey(shape.buildingId, match.floor, match.room.id);
@@ -1276,8 +1277,9 @@ export default function CampusMap({
                   const buildingData = representedBuildingId
                     ? buildings.find((candidate) => candidate.id === representedBuildingId)
                     : undefined;
+                  const matchingRoomId = s.id === "gym-stage" ? "stage" : s.id;
                   const matchingRoom = buildingData?.floors
-                    .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === s.id) }))
+                    .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === matchingRoomId) }))
                     .find((entry) => !!entry.room);
                   const shapeRoomKey = matchingRoom?.room && representedBuildingId
                     ? matchingRoom.room.nodeId ?? syntheticRoomNameKey(representedBuildingId, matchingRoom.floor, matchingRoom.room.id)
