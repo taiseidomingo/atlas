@@ -1,0 +1,2 @@
+Q: Do students and visitors need an account or login to use ATLAS?
+A: No. Students & Visitors can access interactive campus map navigation and use the AI assistant for inquiries without logging in. Authenticated accounts are used for Faculty and Administrators to perform role-specific actions.

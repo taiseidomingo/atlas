@@ -1,0 +1,2 @@
+Q: Does ATLAS track personal user locations via GPS or monitor student attendance?
+A: No. ATLAS does not track personal user locations through GPS, nor does it monitor student attendance. Location and room-related features focus on campus navigation and room utilization events (such as room claims and releases) within the defined system scope.

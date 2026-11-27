@@ -1,0 +1,2 @@
+Q: What kinds of questions can the AI assistant answer?
+A: The AI assistant handles campus-related inquiries; such as locating specific rooms, offices, or facilities and checking general room availability; for Students & Visitors, Faculty, and Administrators without requiring login for public inquiries.

@@ -1,0 +1,2 @@
+Q: How do faculty members claim, release, and update room availability?
+A: Authenticated Faculty can claim or release rooms directly within the application, triggering live room occupancy updates so other users see current availability. Room status reflects these active claim and release actions rather than automated personal movement tracking or student attendance logs.

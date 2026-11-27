@@ -1,0 +1,2 @@
+Q: Is ATLAS integrated with university enrollment or grading systems?
+A: No. ATLAS operates independently of university enrollment and grading systems, relying on its own navigation, AI inquiry, room claim/release, and administrative management workflows rather than student academic records or course enrollment data.

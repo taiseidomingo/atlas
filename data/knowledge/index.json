@@ -1,0 +1,64 @@
+{
+  "docs": [
+    {
+      "id": "d0034546-0b6f-491d-a0dc-679da43c0024",
+      "title": "Account Log In",
+      "fileName": "Text entry",
+      "ext": "text",
+      "size": 294,
+      "sha256": "ee3f1cf01a363e7a9ec2f96710249b21786eff3227095a338d6d837e41cacdf5",
+      "enabled": true,
+      "chars": 294,
+      "createdAt": "2026-11-27T16:34:59.492Z",
+      "updatedAt": "2026-11-27T16:34:59.492Z"
+    },
+    {
+      "id": "3ede544f-c02b-4bb7-9588-a17171e3aa01",
+      "title": "Room Claiming",
+      "fileName": "Text entry",
+      "ext": "text",
+      "size": 373,
+      "sha256": "460e63b14fb0a9218562ff9722729cf14057d7a897f8cdbadc0aa68e70cf1135",
+      "enabled": true,
+      "chars": 373,
+      "createdAt": "2026-11-27T16:36:07.439Z",
+      "updatedAt": "2026-11-27T16:36:07.439Z"
+    },
+    {
+      "id": "c9e7d037-061e-4eff-9005-149ef8a8f405",
+      "title": "Location Tracking",
+      "fileName": "Text entry",
+      "ext": "text",
+      "size": 345,
+      "sha256": "72c43ad6910437e24c01463939af98286841f98b633e761d2539bd04026efeec",
+      "enabled": true,
+      "chars": 345,
+      "createdAt": "2026-11-27T16:36:42.358Z",
+      "updatedAt": "2026-11-27T16:36:42.358Z"
+    },
+    {
+      "id": "8ff0c121-4056-4020-a429-0849594b7f5b",
+      "title": "Enrollment & Grading Systems",
+      "fileName": "Text entry",
+      "ext": "text",
+      "size": 318,
+      "sha256": "d6aad2a133e1c087a0cf38685c832d03d61deb439440452814ab4c223586dff3",
+      "enabled": true,
+      "chars": 318,
+      "createdAt": "2026-11-27T16:37:19.565Z",
+      "updatedAt": "2026-11-27T16:37:19.565Z"
+    },
+    {
+      "id": "281da550-edb9-426d-8f6e-409c0321718e",
+      "title": "Chatbot Inquiries",
+      "fileName": "Text entry",
+      "ext": "text",
+      "size": 304,
+      "sha256": "d8040ac5b3eb3a3ecd82ee05be1ce3010f69a6a483b10f16095dbae688bae883",
+      "enabled": true,
+      "chars": 304,
+      "createdAt": "2026-11-27T16:38:47.826Z",
+      "updatedAt": "2026-11-27T16:38:47.826Z"
+    }
+  ]
+}
