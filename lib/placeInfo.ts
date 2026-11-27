@@ -92,13 +92,16 @@ export function getPlaceInfo(
   }
 
   const shape = campusShapes.find((s) => s.nodeId === id);
+  const description =
+    id === "Gate 2"
+      ? `North entrance of the campus, close to the ${buildingDisplayName(names, "hm", "HM building")} and ${buildingDisplayName(names, "ctmo", "CTMO")}.`
+      : DESCRIPTIONS[id] ?? `${shape?.type ?? "Location"} on the campus grounds.`;
   return {
     id,
     name: displayName(names, id, node.name),
     type: shape?.type ?? "Location",
     place: "Campus grounds",
-    description:
-      DESCRIPTIONS[id] ?? `${shape?.type ?? "Location"} on the campus grounds.`,
+    description,
     photos,
   };
 }
