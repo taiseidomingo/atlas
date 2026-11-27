@@ -1,16 +1,38 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { selectGroups } from "./CampusMap";
-
-const places = selectGroups.flatMap((g) =>
-  g.options.map((o) => ({ id: o.id, name: o.name, group: g.label })),
-);
+import { displayName } from "@/lib/locationNames";
+import { buildSelectGroups } from "./CampusMap";
 
 export default function HomeSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [names, setNames] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/names")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.names && typeof data.names === "object") {
+          setNames(data.names);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const places = useMemo(
+    () => buildSelectGroups(names).flatMap((group) =>
+      group.options.map((option) => ({
+        id: option.id,
+        name: displayName(names, option.id, option.name),
+        group: group.label,
+      })),
+    ),
+    [names],
+  );
 
   const matches = query.trim()
     ? places
