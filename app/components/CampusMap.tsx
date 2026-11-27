@@ -1133,6 +1133,7 @@ export default function CampusMap({
                   aria-selected={selectedManagedId === item.id}
                   className={`${styles.editorItem} ${selectedManagedId === item.id ? styles.editorItemActive : ""}`}
                   onClick={() => selectManagedItem(item)}
+                  disabled={nameSaving}
                 >
                   <span className={styles.editorItemTop}>
                     <span className={styles.editorKind}>{item.kind}</span>
@@ -1908,6 +1909,14 @@ export default function CampusMap({
                   setBuilderMode(false);
                   setRoomEditingMode(true);
                   setNameSearch("");
+                  const previousItem = managedItems.find((item) => item.id === selectedManagedId);
+                  if (previousItem) {
+                    const savedName = roomNames[previousItem.id] ?? previousItem.name;
+                    setEditingRoomId(previousItem.id);
+                    setEditingRoomName(savedName);
+                    setEditingRoomOriginalName(savedName);
+                    setRoomNameError("");
+                  }
                 }
               }}
             >
@@ -1973,7 +1982,9 @@ export default function CampusMap({
                         setFloor(f.floor);
                       }}
                     >
-                      {floorDisplayName(roomNames, buildingId, f.floor, f.name)}
+                      {buildingId === "old"
+                        ? f.floor === 1 ? "1F" : f.floor === 2 ? "2.1F" : f.floor === 3 ? "2.2F" : `${f.floor}F`
+                        : `${f.floor}F`}
                     </button>
                   ))}
               </div>
