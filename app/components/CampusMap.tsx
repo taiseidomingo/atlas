@@ -868,23 +868,6 @@ export default function CampusMap({
     if (isSelectableNode(id)) pick(id);
   };
 
-  const beginRoomNameEdit = (room: PlanRoom) => {
-    if (!isAdmin || !roomEditingMode || !room.nodeId) return;
-    if (editingRoomId && editingRoomId !== room.nodeId) {
-      if (
-        editingRoomName !== editingRoomOriginalName &&
-        !window.confirm("Discard unsaved room name changes?")
-      ) {
-        return;
-      }
-    }
-    const name = roomNames[room.nodeId] ?? room.label.replace(/\n/g, " ");
-    setEditingRoomId(room.nodeId);
-    setEditingRoomName(name);
-    setEditingRoomOriginalName(name);
-    setRoomNameError("");
-  };
-
   const cancelRoomNameEdit = useCallback(() => {
     setEditingRoomId(null);
     setEditingRoomName("");
@@ -1093,8 +1076,111 @@ export default function CampusMap({
         </section>
       )}
       <div
-        className={`${styles.layout} ${hideSidebar ? styles.noSidebar : ""}`}
+        className={`${styles.layout} ${hideSidebar ? styles.noSidebar : ""} ${isAdmin && roomEditingMode ? styles.layoutWithEditor : ""}`}
       >
+        {isAdmin && roomEditingMode && (
+          <aside className={styles.adminEditor} aria-label="Location name editor">
+            <div className={styles.editorHeader}>
+              <div>
+                <strong>Manage map names</strong>
+                <span>Buildings, floors, rooms and campus areas</span>
+              </div>
+              <button
+                type="button"
+                className={styles.editorClose}
+                onClick={() => exitRoomEditingMode()}
+                aria-label="Close name editor"
+                title="Close name editor"
+              >
+                ×
+              </button>
+            </div>
+            <input
+              className={styles.editorSearch}
+              value={nameSearch}
+              onChange={(event) => setNameSearch(event.target.value)}
+              placeholder="Search locations…"
+              aria-label="Search locations"
+            />
+            <div className={styles.editorList} role="listbox" aria-label="Available locations">
+              {visibleManagedItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="option"
+                  aria-selected={selectedManagedId === item.id}
+                  className={`${styles.editorItem} ${selectedManagedId === item.id ? styles.editorItemActive : ""}`}
+                  onClick={() => selectManagedItem(item)}
+                >
+                  <span className={styles.editorItemTop}>
+                    <span className={styles.editorKind}>{item.kind}</span>
+                    <span className={styles.editorItemName}>{item.name}</span>
+                  </span>
+                  <span className={styles.editorContext}>{item.context}</span>
+                </button>
+              ))}
+              {visibleManagedItems.length === 0 && (
+                <p className={styles.editorEmpty}>No matching locations.</p>
+              )}
+            </div>
+            <div className={styles.editorForm}>
+              <div className={styles.editorFormHeading}>
+                <strong>{selectedManagedItem ? "Edit selected name" : "Select a location"}</strong>
+                {selectedManagedItem && <span>{selectedManagedItem.kind}</span>}
+              </div>
+              <label className={styles.editorLabel} htmlFor="atlas-managed-name">
+                Current name
+              </label>
+              <input
+                id="atlas-managed-name"
+                className={styles.editorInput}
+                value={editingRoomId ? editingRoomName : ""}
+                onChange={(event) => setEditingRoomName(event.target.value)}
+                disabled={!editingRoomId || nameSaving}
+                maxLength={100}
+                placeholder="Select a building, floor or room above"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") saveRoomNameEdit();
+                  if (event.key === "Escape") {
+                    const savedName = selectedManagedId
+                      ? roomNames[selectedManagedId] ?? selectedManagedItem?.name ?? ""
+                      : "";
+                    setEditingRoomName(savedName);
+                    setEditingRoomOriginalName(savedName);
+                    setRoomNameError("");
+                  }
+                }}
+              />
+              <div className={styles.editorButtons}>
+                <button
+                  type="button"
+                  className={styles.editorSave}
+                  onClick={saveRoomNameEdit}
+                  disabled={!editingRoomId || nameSaving || !editingRoomName.trim() || editingRoomName.trim() === editingRoomOriginalName}
+                >
+                  {nameSaving ? "Saving…" : "Save name"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.editorCancel}
+                  disabled={!editingRoomId || nameSaving}
+                  onClick={() => {
+                    const savedName = selectedManagedId
+                      ? roomNames[selectedManagedId] ?? selectedManagedItem?.name ?? ""
+                      : "";
+                    setEditingRoomName(savedName);
+                    setEditingRoomOriginalName(savedName);
+                    setRoomNameError("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+              {roomNameError && <p className={styles.editorError} role="alert">{roomNameError}</p>}
+              <p className={styles.editorHint}>Selecting an item also highlights its location on the map.</p>
+            </div>
+          </aside>
+        )}
         <div className={styles.stage}>
           <div className={styles.chip} aria-live="polite">
             {phaseLabel}
@@ -1452,7 +1538,7 @@ export default function CampusMap({
                   }
                   className={styles.svg}
                   role="img"
-                  aria-label={`${building.name}, ${plan.name} floor plan`}
+                  aria-label={`${currentBuildingName}, ${currentFloorName} floor plan`}
                   onClick={(event) =>
                     addBuilderPoint(event, activeMapKey, activeViewBox)
                   }
@@ -1744,6 +1830,24 @@ export default function CampusMap({
             )}
           </ZoomPan>
 
+          {isAdmin && (
+            <button
+              type="button"
+              className={styles.backBtn}
+              style={{ top: phase === "building" ? 112 : 12 }}
+              aria-pressed={roomEditingMode}
+              onClick={() => {
+                if (roomEditingMode) exitRoomEditingMode();
+                else {
+                  setBuilderMode(false);
+                  setRoomEditingMode(true);
+                  setNameSearch("");
+                }
+              }}
+            >
+              {roomEditingMode ? "Close Name Editor" : "Edit Location Names"}
+            </button>
+          )}
           {phase === "building" && (
             <>
               <button
@@ -1758,19 +1862,6 @@ export default function CampusMap({
                 <span className={styles.backLong}>Back to Campus Overview</span>
                 <span className={styles.backShort}>Campus</span>
               </button>
-              {isAdmin && (
-                <button
-                  type="button"
-                  className={styles.backBtn}
-                  style={{ top: 112 }}
-                  onClick={() => {
-                    if (roomEditingMode) exitRoomEditingMode();
-                    else setRoomEditingMode(true);
-                  }}
-                >
-                  {roomEditingMode ? "Exit Name Editing" : "Edit Room Names"}
-                </button>
-              )}
               {(buildingId === "cl-n" || buildingId === "cl-s") && (
                 <button
                   type="button"
@@ -1800,8 +1891,8 @@ export default function CampusMap({
                         buildingId === "old" ? styles.floorBtnWide : ""
                       } ${f.floor === floor ? styles.floorActive : ""}`}
                       aria-pressed={f.floor === floor}
-                      aria-label={f.name}
-                      title={f.name}
+                      aria-label={floorDisplayName(roomNames, buildingId, f.floor, f.name)}
+                      title={floorDisplayName(roomNames, buildingId, f.floor, f.name)}
                       onClick={() => {
                         if (
                           roomEditingMode &&
@@ -1816,15 +1907,7 @@ export default function CampusMap({
                         setFloor(f.floor);
                       }}
                     >
-                      {buildingId === "old"
-                        ? f.floor === 1
-                          ? "1F"
-                          : f.floor === 2
-                          ? "2.1F"
-                          : f.floor === 3
-                          ? "2.2F"
-                          : `${f.floor}F`
-                        : `${f.floor}F`}
+                      {floorDisplayName(roomNames, buildingId, f.floor, f.name)}
                     </button>
                   ))}
               </div>
