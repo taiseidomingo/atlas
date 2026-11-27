@@ -21,6 +21,12 @@ import campusMap08 from "../assets/ATLAS-map-08.png";
 import campusMap09 from "../assets/ATLAS-map-09.png";
 import campusMap10 from "../assets/ATLAS-map-10.png";
 import campusMap11 from "../assets/ATLAS-map-11.png";
+import campusMap04 from "../assets/ATLAS-map-04.png";
+import campusMap12 from "../assets/ATLAS-map-12.png";
+import campusMap13 from "../assets/ATLAS-map-13.png";
+import campusMap14 from "../assets/ATLAS-map-14.png";
+import campusMap15 from "../assets/ATLAS-map-15.png";
+import campusMap16 from "../assets/ATLAS-map-16.png";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph, routingNodeById } from "@/lib/routingGraph";
 import { findShortestPath } from "@/lib/pathfinding";
@@ -139,15 +145,16 @@ function imageRoomRect(
       : hotspotRect(xPercent[roomId], 19.7, 14.1, 58.0);
   }
   if (buildingId === "cl-n" || buildingId === "cl-s") {
+    const north = buildingId === "cl-n";
     if (roomId === "stairs") {
-      return hotspotRect(buildingId === "cl-n" ? 92.3 : 92.7, 46.9, 6.6, 18.9);
+      return hotspotRect(north ? 92.3 : 92.7, north ? 48.2 : 46.9, 6.6, 18.9);
     }
-    const start = buildingId === "cl-n" ? 5 : 1;
+    const start = north ? 5 : 1;
     const roomNumber = Number(roomId.split("-").pop());
     if (!Number.isInteger(roomNumber)) return null;
     const index = roomNumber - start;
-    const xPercent = (buildingId === "cl-n" ? 3.6 : 4.1) + (3 - index) * 20.9;
-    return hotspotRect(xPercent, 26.6, 20.0, 38.3);
+    const xPercent = (north ? 3.7 : 4.1) + (3 - index) * 20.9;
+    return hotspotRect(xPercent, north ? 27.9 : 26.7, 20.0, 38.0);
   }
   if (buildingId === "hm" && floorNumber >= 1 && floorNumber <= 3) {
     if (roomId === `stairs-${floorNumber}`) {
@@ -183,11 +190,11 @@ function imageRoomRect(
   }
   if (buildingId === "gym") {
     const gymRooms: Record<string, [number, number, number, number]> = {
-      stage: [15.0, 20.0, 70.0, 38.0],
-      cr: [16.0, 69.0, 16.0, 18.0],
-      dmst: [32.0, 69.0, 18.0, 18.0],
-      osd: [50.0, 69.0, 18.0, 18.0],
-      fitting: [68.0, 69.0, 16.0, 18.0],
+      stage: [19.4, 19.7, 61.1, 35.0],
+      cr: [19.4, 61.4, 14.9, 17.3],
+      dmst: [34.9, 61.2, 14.9, 17.3],
+      osd: [50.3, 61.3, 14.9, 17.3],
+      fitting: [65.7, 61.0, 14.9, 17.3],
     };
     const rect = gymRooms[roomId];
     return rect ? hotspotRect(rect[0], rect[1], rect[2], rect[3]) : null;

@@ -4,8 +4,14 @@
     "OB-1-BIOLOGY": "fadsfgadsjhgfshjjhaweewgdsv",
     "OB-1-KITCHEN": "HMM",
     "OB-1-HM-STOCK": "taiseipogi",
-    "OB-1-RM117": "callmebaby",
-    "Smart Room": "Smart Room"
+    "OB-1-RM117": "callmebabymagagawa",
+    "Smart Room": "Smart Room",
+    "GYM-STAGE": "Stage Floor",
+    "OB-2.1-CSG": "CSG Office",
+    "OB-2.1-RM202": "RM 202",
+    "OB-2.1-SUPPLY-STOCK": "Supply & Property Office",
+    "OB-2.1-FITTING": "Fitting Room",
+    "OB-2.1-LIBRARY": "Library"
   },
   "uses": {
     "Learning Room": 1,
