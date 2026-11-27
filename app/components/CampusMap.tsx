@@ -411,6 +411,7 @@ interface CampusMapProps {
   onRoute?: (route: RouteSummary | null) => void;
   quickRoute?: boolean;
   onSelect?: (id: string | null) => void;
+  onNamesChange?: (names: Record<string, string>) => void;
   userPos?: { x: number; y: number } | null;
   showNodes?: boolean;
 }
@@ -426,6 +427,7 @@ export default function CampusMap({
   onRoute,
   quickRoute = false,
   onSelect,
+  onNamesChange,
   userPos,
   showNodes = false,
 }: CampusMapProps = {}) {
@@ -937,8 +939,12 @@ export default function CampusMap({
         setRoomNameError(data.error ?? "Could not save this name.");
         return;
       }
-      if (data.names && typeof data.names === "object") setRoomNames(data.names);
-      else setRoomNames((current) => ({ ...current, [editingRoomId]: name }));
+      const updatedNames =
+        data.names && typeof data.names === "object"
+          ? data.names as Record<string, string>
+          : { ...roomNames, [editingRoomId]: name };
+      setRoomNames(updatedNames);
+      onNamesChange?.(updatedNames);
       if (Array.isArray(data.items)) setManagedItems(data.items);
       setEditingRoomName(name);
       setEditingRoomOriginalName(name);
