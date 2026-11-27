@@ -1,6 +1,6 @@
 import { campusGraph } from "./graph";
 import { buildingById, buildingOfNode } from "./mapData";
-import { getRoomName } from "./roomAdmin";
+import { getBuildingName, getFloorName, getRoomName } from "./roomAdmin";
 
 export interface ClaimableRoom {
   id: string;
@@ -10,8 +10,9 @@ export interface ClaimableRoom {
 
 function placeOf(id: string, floor?: number): string {
   const b = buildingOfNode(id);
-  const building = b ? buildingById[b].name : "Campus";
-  return floor ? `${building}, Floor ${floor}` : building;
+  if (!b) return "Campus grounds";
+  const building = getBuildingName(b, buildingById[b].name);
+  return floor ? `${building}, ${getFloorName(b, floor)}` : building;
 }
 export function listClaimableRooms(): ClaimableRoom[] {
   return campusGraph.nodes

@@ -55,7 +55,6 @@ export default function TeacherPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [usage, setUsage] = useState<RoomUsage[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  const [draftNames, setDraftNames] = useState<Record<string, string>>({});
   const [claims, setClaims] = useState<Record<string, string>>({});
   const [name, setName] = useState("");
   const [pin, setPin] = useState("");
@@ -208,20 +207,6 @@ export default function TeacherPage() {
     return Array.from(map.entries());
   }, [rooms, filter]);
 
-  const rename = async (room: RoomUsage) => {
-    setError("");
-    const name = (draftNames[room.id] ?? room.name).trim();
-    if (!name) return setError("Room name cannot be empty.");
-    const res = await fetch("/api/admin/dashboard", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nodeId: room.id, name }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return setError(data.error ?? "Room rename failed.");
-    await loadSession();
-  };
-
   const exportReport = () => {
     if (!dashboard) return;
     const rows = [
@@ -334,9 +319,12 @@ export default function TeacherPage() {
             <h1 className="pageTitle">Admin Dashboard</h1>
             <p className="sub">Signed in as admin · room usage overview</p>
           </div>
-          <button className="btnGhost" onClick={logout}>
-            Log out
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <a href="/navigation" className="btnGhost">Manage campus names on map</a>
+            <button className="btnGhost" onClick={logout}>
+              Log out
+            </button>
+          </div>
         </div>
           <div
             className="card"
@@ -704,37 +692,6 @@ export default function TeacherPage() {
               </table>
             </div>
           )}
-        </section>
-        <section className="card" style={{ marginTop: 22 }}>
-          <h2 style={{ marginTop: 0 }}>Rename rooms</h2>
-          <div style={{ display: "grid", gap: 10 }}>
-            {usage.map((room) => (
-              <div
-                key={room.id}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) auto",
-                  gap: 10,
-                  alignItems: "center",
-                }}
-              >
-                <input
-                  className="input"
-                  value={draftNames[room.id] ?? room.name}
-                  onChange={(event) =>
-                    setDraftNames((current) => ({
-                      ...current,
-                      [room.id]: event.target.value,
-                    }))
-                  }
-                  aria-label={`Name for ${room.name}`}
-                />
-                <button className="btnGhost" onClick={() => rename(room)}>
-                  Save
-                </button>
-              </div>
-            ))}
-          </div>
         </section>
       </>
     );

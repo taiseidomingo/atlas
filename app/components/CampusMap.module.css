@@ -769,3 +769,235 @@
 :global(html[data-ui="mobile"]) .note {
   bottom: 70px;
 }
+
+
+/* Admin-only centralized location name editor */
+.layoutWithEditor {
+  grid-template-columns: 320px minmax(0, 1fr) 340px;
+}
+.layoutWithEditor.noSidebar {
+  grid-template-columns: 320px minmax(0, 1fr);
+}
+.adminEditor {
+  min-width: 0;
+  max-height: min(80vh, 880px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.07);
+}
+.editorHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.editorHeader > div {
+  display: grid;
+  gap: 4px;
+}
+.editorHeader strong {
+  font-size: 15px;
+}
+.editorHeader span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.editorClose {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+.editorSearch {
+  flex: 0 0 auto;
+  width: calc(100% - 24px);
+  margin: 12px;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.editorSearch:focus,
+.editorInput:focus {
+  border-color: var(--mid);
+  box-shadow: 0 0 0 3px rgba(36, 51, 196, 0.10);
+}
+.editorList {
+  flex: 1 1 auto;
+  min-height: 110px;
+  overflow: auto;
+  padding: 0 8px 10px;
+}
+.editorItem {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+  margin: 0 0 5px;
+  padding: 9px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.editorItem:hover {
+  background: #f5f7ff;
+}
+.editorItemActive {
+  border-color: rgba(36, 51, 196, 0.38);
+  background: #eff2ff;
+}
+.editorItemTop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.editorKind {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #3442a6;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.editorItemName {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 650;
+}
+.editorContext {
+  display: block;
+  padding-left: 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.editorEmpty {
+  padding: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.editorForm {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border-top: 1px solid var(--line);
+  background: #fbfcff;
+}
+.editorFormHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+.editorFormHeading strong {
+  font-size: 13px;
+}
+.editorFormHeading span {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.editorLabel {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+.editorInput {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+.editorInput:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+.editorButtons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.editorSave,
+.editorCancel {
+  min-height: 36px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.editorSave {
+  border: 1px solid var(--mid);
+  background: var(--mid);
+  color: #fff;
+}
+.editorCancel {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+.editorSave:disabled,
+.editorCancel:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.editorError {
+  margin: 0;
+  color: var(--dest);
+  font-size: 11px;
+}
+.editorHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .layoutWithEditor,
+  .layoutWithEditor.noSidebar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .adminEditor {
+    max-height: min(44vh, 360px);
+    max-height: min(44dvh, 360px);
+    border-radius: 13px;
+  }
+  .editorList {
+    min-height: 80px;
+  }
+  .editorForm {
+    padding: 10px 12px;
+  }
+}

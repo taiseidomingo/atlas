@@ -76,5 +76,11 @@ export function releaseRoom(
 }
 
 export function listReservations(): Reservation[] {
-  return Array.from(reservations.values());
+  return Array.from(reservations.values()).map((reservation) => ({
+    ...reservation,
+    roomName: getRoomName(
+      reservation.nodeId,
+      campusGraph.nodes.find((node) => node.id === reservation.nodeId)?.name ?? reservation.roomName,
+    ),
+  }));
 }

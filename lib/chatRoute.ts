@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listReservations, Reservation } from "../lib/reservation";
 import { campusGraph } from "./graph";
+import { getRoomName } from "./roomAdmin";
 
 export interface ChatNavigationRequest {
   startId?: string;
@@ -22,7 +23,7 @@ function navigationRequest(
   const text = compact(message);
   const matches = navigableNodes
     .flatMap((node) =>
-      [node.name, node.name.replace(/\s*\([^)]*\)$/, "")].map((alias) => ({
+      [getRoomName(node.id, node.name), getRoomName(node.id, node.name).replace(/\s*\([^)]*\)$/, "")].map((alias) => ({
         id: node.id,
         alias: compact(alias),
       })),
