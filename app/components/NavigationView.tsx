@@ -2,16 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import CampusMap, { MapFocus, RouteSummary, buildSelectGroups, selectGroups } from "./CampusMap";
+import CampusMap, {
+  MapFocus,
+  RouteSummary,
+  buildSelectGroups,
+  selectGroups,
+} from "./CampusMap";
 import PlaceCard from "./PlaceCard";
-import { buildingOfNode } from "@/lib/mapData";
-import { buildingDisplayName } from "@/lib/locationNames";
-import type { BuildingId } from "@/lib/mapData";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph } from "@/lib/routingGraph";
 import { geoReady, toMapPoint } from "@/lib/geo";
 import { getPlaceInfo } from "@/lib/placeInfo";
 import styles from "./NavigationView.module.css";
+import { buildingOfNode } from "@/lib/mapData";
+import { buildingDisplayName } from "@/lib/locationNames";
+import type { BuildingId } from "@/lib/mapData";
 
 type Focus = (MapFocus & { nonce: number }) | null;
 type LocStatus =
@@ -79,10 +84,13 @@ export default function NavigationView() {
     fetch("/api/admin/names")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (!cancelled && data?.names && typeof data.names === "object") setNames(data.names);
+        if (!cancelled && data?.names && typeof data.names === "object")
+          setNames(data.names);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const manualStart = useRef(false);
@@ -214,14 +222,14 @@ export default function NavigationView() {
           Tap-to-route
         </label>
         {process.env.NODE_ENV !== "production" && (
-        <label className={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={showNodes}
-            onChange={(e) => setShowNodes(e.target.checked)}
-          />
-          Show path nodes
-        </label>
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={showNodes}
+              onChange={(e) => setShowNodes(e.target.checked)}
+            />
+            Show path nodes
+          </label>
         )}
         <span className={styles.banner}>{STATUS_TEXT[status]}</span>
       </div>
@@ -230,12 +238,36 @@ export default function NavigationView() {
         {(
           [
             ["campus", "Grounds", { kind: "campus" }],
-            ["new", buildingDisplayName(names, "new", "New Building"), { kind: "building", id: "new" }],
-            ["old", buildingDisplayName(names, "old", "Old Building"), { kind: "building", id: "old" }],
-            ["ctmo", buildingDisplayName(names, "ctmo", "CTMO"), { kind: "building", id: "ctmo" }],
-            ["hm", buildingDisplayName(names, "hm", "HM Building"), { kind: "building", id: "hm" }],
-            ["cl-s", buildingDisplayName(names, "cl-s", "CL Building (CL 1-4)"), { kind: "building", id: "cl-s" }],
-            ["cl-n", buildingDisplayName(names, "cl-n", "CL Building (CL 5-8)"), { kind: "building", id: "cl-n" }],
+            [
+              "new",
+              buildingDisplayName(names, "new", "New Building"),
+              { kind: "building", id: "new" },
+            ],
+            [
+              "old",
+              buildingDisplayName(names, "old", "Old Building"),
+              { kind: "building", id: "old" },
+            ],
+            [
+              "ctmo",
+              buildingDisplayName(names, "ctmo", "CTMO"),
+              { kind: "building", id: "ctmo" },
+            ],
+            [
+              "hm",
+              buildingDisplayName(names, "hm", "HM Building"),
+              { kind: "building", id: "hm" },
+            ],
+            [
+              "cl-s",
+              buildingDisplayName(names, "cl-s", "CL Building (CL 1-4)"),
+              { kind: "building", id: "cl-s" },
+            ],
+            [
+              "cl-n",
+              buildingDisplayName(names, "cl-n", "CL Building (CL 5-8)"),
+              { kind: "building", id: "cl-n" },
+            ],
           ] as [string, string, MapFocus][]
         ).map(([id, label, f]) => (
           <button
