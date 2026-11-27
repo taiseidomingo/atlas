@@ -1291,6 +1291,7 @@ export default function CampusMap({
                     ? displayName(roomNames, buildingNameKey(representedBuildingId), s.label)
                     : displayName(roomNames, s.nodeId, s.label);
                   const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
+                  const shapeClipId = `campus-label-${s.id}`.replace(/[^a-zA-Z0-9_-]/g, "-");
                   const shapeLabelLayout = fitMapLabel(
                     shapeName,
                     s.vertical ? s.h : s.w,
@@ -1343,7 +1344,18 @@ export default function CampusMap({
                             )
                           : cls}
                       />
+                      <defs>
+                        <clipPath id={shapeClipId} clipPathUnits="userSpaceOnUse">
+                          <rect
+                            x={s.x + 4}
+                            y={s.y + 4}
+                            width={Math.max(1, s.w - 8)}
+                            height={Math.max(1, s.h - 8)}
+                          />
+                        </clipPath>
+                      </defs>
                       <text
+                        clipPath={`url(#${shapeClipId})`}
                         x={cx}
                         y={cy}
                         className={
@@ -1381,6 +1393,7 @@ export default function CampusMap({
                     const cx = b.rect.x + b.rect.w / 2;
                     const cy = b.rect.y + b.rect.h / 2;
                     const buildingLabel = buildingDisplayName(roomNames, b.id, b.name);
+                    const buildingClipId = `building-label-${b.id}`;
                     const buildingLabelLayout = fitMapLabel(buildingLabel, b.rect.h, b.rect.w);
                     const hitRects =
                       b.id === "old"
@@ -1433,7 +1446,18 @@ export default function CampusMap({
                             className={`${styles.imageHitbox} ${roomEditingMode && selectedManagedId === buildingNameKey(b.id) ? styles.isSelected : ""}`}
                           />
                         ))}
+                        <defs>
+                          <clipPath id={buildingClipId} clipPathUnits="userSpaceOnUse">
+                            <rect
+                              x={b.rect.x + 4}
+                              y={b.rect.y + 4}
+                              width={Math.max(1, b.rect.w - 8)}
+                              height={Math.max(1, b.rect.h - 8)}
+                            />
+                          </clipPath>
+                        </defs>
                         <text
+                          clipPath={`url(#${buildingClipId})`}
                           x={cx}
                           y={cy - 10}
                           className={roomNames[buildingNameKey(b.id)] ? styles.label : styles.imageLabelHidden}
