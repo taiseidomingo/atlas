@@ -1,20 +1,20 @@
 export type ManagedDisplayNames = Record<string, string>;
 
-export const buildingNameKey = (buildingId: string) => `building:${buildingId}`;
+export const buildingNameKey = (buildingId: string) => \`building:\${buildingId}\`;
 export const floorNameKey = (buildingId: string, floor: number) =>
-  `floor:${buildingId}:${floor}`;
+  \`floor:\${buildingId}:\${floor}\`;
 export const syntheticRoomNameKey = (
   buildingId: string,
   floor: number,
   roomId: string,
-) => `room:${buildingId}:${floor}:${roomId}`;
+) => \`room:\${buildingId}:\${floor}:\${roomId}\`;
 
 export function displayName(
   names: ManagedDisplayNames,
   id: string | undefined,
   fallback: string,
 ): string {
-  return (id && names[id] ? names[id] : fallback).replace(/\\n/g, " ").trim();
+  return (id && names[id] ? names[id] : fallback).replace(/\n/g, " ").trim();
 }
 
 export function buildingDisplayName(
@@ -39,7 +39,7 @@ export function fitMapLabel(
   width: number,
   height: number,
 ): { lines: string[]; fontSize: number } {
-  const text = value.replace(/\\n/g, " ").replace(/\\s+/g, " ").trim();
+  const text = value.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   const maxWidth = Math.max(1, width * 0.86);
   const maxHeight = Math.max(1, height * 0.68);
   const startSize = Math.max(
@@ -53,13 +53,16 @@ export function fitMapLabel(
     let line = "";
     for (const word of text.split(" ")) {
       if (word.length > maxChars) {
-        if (line) result.push(line), (line = "");
+        if (line) {
+          result.push(line);
+          line = "";
+        }
         for (let offset = 0; offset < word.length; offset += maxChars) {
           result.push(word.slice(offset, offset + maxChars));
         }
         continue;
       }
-      const candidate = line ? `${line} ${word}` : word;
+      const candidate = line ? \`\${line} \${word}\` : word;
       if (candidate.length > maxChars && line) {
         result.push(line);
         line = word;
@@ -81,6 +84,6 @@ export function fitMapLabel(
     }
   }
 
-  // At the minimum size, clip safely to the room rather than drawing outside it.
+  // Clip at the room boundary rather than allowing text into neighbouring areas.
   return { lines: wrap(8), fontSize: 8 };
 }
