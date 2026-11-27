@@ -10,8 +10,9 @@ export interface ClaimableRoom {
 
 function placeOf(id: string, floor?: number): string {
   const b = buildingOfNode(id);
-  const building = b ? getBuildingName(b, buildingById[b].name) : "Campus";
-  return floor ? `${building}, ${getFloorName(b!, floor)}` : building;
+  if (!b) return "Campus grounds";
+  const building = getBuildingName(b, buildingById[b].name);
+  return floor ? `${building}, ${getFloorName(b, floor)}` : building;
 }
 export function listClaimableRooms(): ClaimableRoom[] {
   return campusGraph.nodes
