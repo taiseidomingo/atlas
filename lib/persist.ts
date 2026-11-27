@@ -1,5 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { kvPipeline } from "./kv";
-import { takeDirty, useKv, type StoreName } from "./storeMode";
+import { markDirty, takeDirty, useKv, type StoreName } from "./storeMode";
 import { exportAdminState, importAdminState } from "./roomAdmin";
 import { exportActivities, importActivities } from "./activityLog";
 import { exportReservations, importReservations } from "./reservation";
@@ -11,6 +13,7 @@ import {
   exportKnowledgeIndex,
   importKnowledgeIndex,
   KV_TEXT_PREFIX,
+  seedKnowledgeFromDisk,
   takeKnowledgeWrites,
 } from "./knowledgeBase";
 
@@ -52,6 +55,15 @@ const SNAPSHOT: Record<StoreName, () => unknown> = {
   knowledge: exportKnowledgeIndex,
 };
 
+/** A JSON file from the deployment's data/ folder, or null. */
+function readDataFile(name: string): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), "data", name), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function parse(raw: unknown): unknown {
   if (typeof raw !== "string") return null;
   try {
@@ -75,13 +87,40 @@ export async function loadSharedState(): Promise<void> {
     ["GET", KEYS.knowledge],
   ]);
 
-  const shared = (parse(state) ?? {}) as SharedState;
-  importAdminState(shared.names ?? {}, shared.uses ?? {});
-  importActivities(shared.activities ?? []);
-  importReservations(shared.reservations ?? []);
-  importTeacherAccounts(parse(teachers));
-  importFaculty(parse(faculty) as Parameters<typeof importFaculty>[0]);
-  importKnowledgeIndex(parse(knowledge));
+  // A store that has never been saved to Redis (e.g. the first request after
+  // connecting a new database) is seeded from the data/ files bundled with the
+  // deployment, then saved to Redis at the end of this request.
+  if (state === null) {
+    const admin = (readDataFile("room-admin.json") ?? {}) as SharedState;
+    const log = (readDataFile("room-activity.json") ?? {}) as SharedState;
+    importAdminState(admin.names ?? {}, admin.uses ?? {});
+    importActivities(log.activities ?? []);
+    importReservations([]);
+    markDirty("state");
+  } else {
+    const shared = (parse(state) ?? {}) as SharedState;
+    importAdminState(shared.names ?? {}, shared.uses ?? {});
+    importActivities(shared.activities ?? []);
+    importReservations(shared.reservations ?? []);
+  }
+  if (teachers === null) {
+    const accounts = (readDataFile("teachers.json") as { accounts?: unknown } | null)?.accounts;
+    importTeacherAccounts(accounts);
+    if (Array.isArray(accounts) && accounts.length) markDirty("teachers");
+  } else {
+    importTeacherAccounts(parse(teachers));
+  }
+  if (faculty === null) {
+    importFaculty(readDataFile("faculty.json") as Parameters<typeof importFaculty>[0]);
+    markDirty("faculty");
+  } else {
+    importFaculty(parse(faculty) as Parameters<typeof importFaculty>[0]);
+  }
+  if (knowledge === null) {
+    seedKnowledgeFromDisk(); // queues the documents' text/file keys and marks it dirty
+  } else {
+    importKnowledgeIndex(parse(knowledge));
+  }
 
   // Document texts change rarely: fetch only those this instance lacks.
   const missing = docsMissingText();

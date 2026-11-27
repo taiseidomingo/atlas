@@ -195,6 +195,47 @@ export function cacheDocTexts(entries: { doc: KnowledgeDoc; text: unknown }[]): 
   if (entries.length) s.chunks = null;
 }
 
+/**
+ * Redis is empty: load the knowledge base bundled in data/knowledge/ and queue
+ * it (index, texts, small originals) to be saved to Redis.
+ */
+export function seedKnowledgeFromDisk(): void {
+  const s = state();
+  let docs: KnowledgeDoc[] = [];
+  try {
+    const saved = JSON.parse(fs.readFileSync(indexFile, "utf8"));
+    if (Array.isArray(saved.docs)) docs = saved.docs;
+  } catch {
+    // no bundled knowledge base
+  }
+  const seeded: KnowledgeDoc[] = [];
+  for (const doc of docs) {
+    let text: string;
+    try {
+      text = fs.readFileSync(textPath(doc.id), "utf8");
+    } catch {
+      continue; // index entry without text: skip it
+    }
+    let original: Buffer | null = null;
+    try {
+      original = fs.readFileSync(filePath(doc));
+    } catch {}
+    const next: KnowledgeDoc = {
+      ...doc,
+      hasOriginal: !!original && original.length <= MAX_ORIGINAL_IN_KV,
+    };
+    s.texts.set(next.id, { stamp: stampOf(next), text });
+    s.pending.push(["SET", KV_TEXT_PREFIX + next.id, text]);
+    if (next.hasOriginal && original) {
+      s.pending.push(["SET", KV_FILE_PREFIX + next.id, original.toString("base64")]);
+    }
+    seeded.push(next);
+  }
+  s.docs = seeded;
+  s.chunks = null;
+  markDirty("knowledge");
+}
+
 /** Redis writes queued by this request; the queue is emptied. */
 export function takeKnowledgeWrites(): (string | number)[][] {
   const s = state();
