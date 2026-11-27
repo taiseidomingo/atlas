@@ -301,16 +301,18 @@ function isSelectableNode(id: string): boolean {
   return !!n && (n.kind === "entrance" || n.kind === "gate");
 }
 
-export const selectGroups = (() => {
-  const groups: { label: string; options: { id: string; name: string }[] }[] =
-    [];
+export function buildSelectGroups(names: Record<string, string> = {}) {
+  const groups: { label: string; options: { id: string; name: string }[] }[] = [];
   const outdoor = campusGraph.nodes.filter(
     (n) =>
       !buildingOfNode(n.id) && (n.kind === "entrance" || n.kind === "gate"),
   );
   groups.push({
     label: "Campus",
-    options: outdoor.map((n) => ({ id: n.id, name: n.name })),
+    options: outdoor.map((n) => ({
+      id: n.id,
+      name: displayName(names, n.id, n.name),
+    })),
   });
   buildings.forEach((b) => {
     b.floors.forEach((f) => {
@@ -321,14 +323,19 @@ export const selectGroups = (() => {
             n.floor === f.floor &&
             (n.kind === "entrance" || n.kind === "gate"),
         )
-        .map((n) => ({ id: n.id, name: shortName(n.name) }));
+        .map((n) => ({ id: n.id, name: displayName(names, n.id, shortName(n.name)) }));
       if (options.length > 0) {
-        groups.push({ label: `${b.name}, ${f.name}`, options });
+        groups.push({
+          label: `${buildingDisplayName(names, b.id, b.name)}, ${floorDisplayName(names, b.id, f.floor, f.name)}`,
+          options,
+        });
       }
     });
   });
   return groups;
-})();
+}
+
+export const selectGroups = buildSelectGroups();
 
 function zoomTransform(id: BuildingId): string {
   const r = buildingById[id].rect;
@@ -1033,6 +1040,7 @@ export default function CampusMap({
     `${item.name} ${item.context} ${item.id}`.toLowerCase().includes(nameSearch.trim().toLowerCase()),
   );
   const selectedManagedItem = managedItems.find((item) => item.id === selectedManagedId);
+  const locationSelectGroups = useMemo(() => buildSelectGroups(roomNames), [roomNames]);
 
   return (
     <div className={styles.root}>
@@ -1267,7 +1275,11 @@ export default function CampusMap({
                     styles.shape,
                     styles[`tone_${s.tone}`],
                     selectable ? styles.hoverable : "",
-                    selectedId && selectedId === s.nodeId
+                    (selectedId && selectedId === s.nodeId) ||
+                    (roomEditingMode &&
+                      ((s.buildingId && selectedManagedId === buildingNameKey(s.buildingId)) ||
+                        (shapeRoomKey && selectedManagedId === shapeRoomKey) ||
+                        (s.nodeId && selectedManagedId === s.nodeId)))
                       ? styles.isSelected
                       : "",
                     kind === "start" ? styles.isStart : "",
@@ -1373,7 +1385,7 @@ export default function CampusMap({
                             width={rect.w}
                             height={rect.h}
                             rx={4}
-                            className={styles.imageHitbox}
+                            className={`${styles.imageHitbox} ${roomEditingMode && selectedManagedId === buildingNameKey(b.id) ? styles.isSelected : ""}`}
                           />
                         ))}
                         <text
@@ -1648,7 +1660,6 @@ export default function CampusMap({
                         onKeyDown={(e) => {
                           if (
                             selectable &&
-                            room.nodeId &&
                             (e.key === "Enter" || e.key === " ")
                           ) {
                             e.preventDefault();
@@ -1941,7 +1952,7 @@ export default function CampusMap({
                   className={styles.select}
                 >
                   <option value="">Choose a start point</option>
-                  {selectGroups.map((g) => (
+                  {locationSelectGroups.map((g) => (
                     <optgroup key={g.label} label={g.label}>
                       {g.options.map((o) => (
                         <option key={o.id} value={o.id}>
@@ -1964,7 +1975,7 @@ export default function CampusMap({
                   className={styles.select}
                 >
                   <option value="">Choose a destination</option>
-                  {selectGroups.map((g) => (
+                  {locationSelectGroups.map((g) => (
                     <optgroup key={g.label} label={g.label}>
                       {g.options.map((o) => (
                         <option key={o.id} value={o.id}>
