@@ -1,6 +1,7 @@
 import { campusGraph } from "./graph";
 import { buildingById, buildingOfNode, campusShapes } from "./mapData";
 import type { BuildingId } from "./mapData";
+import { buildingDisplayName, displayName, floorDisplayName } from "./locationNames";
 
 export interface PlaceInfo {
   id: string;
@@ -49,7 +50,10 @@ function slug(id: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export function getPlaceInfo(id: string): PlaceInfo | null {
+export function getPlaceInfo(
+  id: string,
+  names: Record<string, string> = {},
+): PlaceInfo | null {
   const node = campusGraph.nodes.find((n) => n.id === id);
   if (!node) return null;
 
@@ -61,13 +65,20 @@ export function getPlaceInfo(id: string): PlaceInfo | null {
     const plan = building.floors.find((f) => f.floor === node.floor);
     const room = plan?.rooms.find((r) => r.nodeId === id);
     const type = room?.type ?? "Room";
-    const place = `${building.name}, ${plan?.name ?? `Floor ${node.floor}`}`;
-    const name = (room?.label ?? node.name).replace(/\n/g, " ");
+    const currentBuildingName = buildingDisplayName(names, b, building.name);
+    const currentFloorName = floorDisplayName(
+      names,
+      b,
+      node.floor ?? 1,
+      plan?.name ?? `Floor ${node.floor}`,
+    );
+    const place = `${currentBuildingName}, ${currentFloorName}`;
+    const name = displayName(names, id, room?.label ?? node.name);
     const description =
       DESCRIPTIONS[id] ??
       (room?.department
-        ? `${type} of the ${room.department}, on the ${plan?.name?.toLowerCase()} of the ${building.name}.`
-        : `${type} on the ${plan?.name?.toLowerCase()} of the ${building.name}.`);
+        ? `${type} of the ${room.department}, on the ${currentFloorName.toLowerCase()} of the ${currentBuildingName}.`
+        : `${type} on the ${currentFloorName.toLowerCase()} of the ${currentBuildingName}.`);
     return {
       id,
       name,
@@ -83,7 +94,7 @@ export function getPlaceInfo(id: string): PlaceInfo | null {
   const shape = campusShapes.find((s) => s.nodeId === id);
   return {
     id,
-    name: node.name,
+    name: displayName(names, id, node.name),
     type: shape?.type ?? "Location",
     place: "Campus grounds",
     description:
