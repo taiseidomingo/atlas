@@ -3,6 +3,12 @@ export type ManagedDisplayNames = Record<string, string>;
 export const buildingNameKey = (buildingId: string) => "building:" + buildingId;
 export const floorNameKey = (buildingId: string, floor: number) =>
   "floor:" + buildingId + ":" + floor;
+const buildingAliases: Record<string, string> = {
+  "CTMO building": "ctmo",
+  "HM building": "hm",
+  Gymnasium: "gym",
+};
+
 export const syntheticRoomNameKey = (
   buildingId: string,
   floor: number,
@@ -14,7 +20,13 @@ export function displayName(
   id: string | undefined,
   fallback: string,
 ): string {
-  return (id && names[id] ? names[id] : fallback).replace(/\n/g, " ").trim();
+  const aliasKey = id && buildingAliases[id] ? buildingNameKey(buildingAliases[id]) : undefined;
+  const value = id && names[id]
+    ? names[id]
+    : aliasKey && names[aliasKey]
+    ? names[aliasKey]
+    : fallback;
+  return value.replace(/\n/g, " ").trim();
 }
 
 export function buildingDisplayName(
