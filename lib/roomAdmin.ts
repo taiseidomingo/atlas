@@ -172,11 +172,11 @@ export function listManagedNameItems(): ManagedNameItem[] {
         node.id.startsWith("GYM-") ? "gym" : undefined;
       const building = buildings.find((candidate) => candidate.id === buildingId);
       const context = building
-        ? `${getBuildingName(building.id, building.name)}${node.floor ? `, Floor ${node.floor}` : ""}`
+        ? `${getBuildingName(building.id, building.name)}${node.floor ? `, ${getFloorName(building.id, node.floor)}` : ""}`
         : "Campus grounds";
       items.set(node.id, {
         id: node.id,
-        kind: node.kind === "gate" ? "area" : "area",
+        kind: "area",
         name: getRoomName(node.id, node.name),
         fallbackName: node.name,
         context,
