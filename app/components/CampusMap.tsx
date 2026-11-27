@@ -1303,10 +1303,7 @@ export default function CampusMap({
                     styles[`tone_${s.tone}`],
                     selectable ? styles.hoverable : "",
                     (selectedId && selectedId === s.nodeId) ||
-                    (roomEditingMode &&
-                      ((s.buildingId && selectedManagedId === buildingNameKey(s.buildingId)) ||
-                        (shapeRoomKey && selectedManagedId === shapeRoomKey) ||
-                        (s.nodeId && selectedManagedId === s.nodeId)))
+                    (roomEditingMode && shapeManagedId && selectedManagedId === shapeManagedId)
                       ? styles.isSelected
                       : "",
                     kind === "start" ? styles.isStart : "",
