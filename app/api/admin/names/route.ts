@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeacher, isAdmin } from "@/lib/auth";
-import { listManagedNameItems, renameManagedName } from "@/lib/roomAdmin";
+import { listManagedNameItems, listRenamedRoomNames, renameManagedName } from "@/lib/roomAdmin";
 
 export const runtime = "nodejs";
 
-function requireAdmin(request: NextRequest): NextResponse | null {
-  return isAdmin(getTeacher(request))
-    ? null
-    : NextResponse.json({ error: "Admin access required." }, { status: 403 });
-}
-
+// Display names are public map data. The editable catalog is returned only to admins.
 export async function GET(request: NextRequest) {
-  const denied = requireAdmin(request);
-  if (denied) return denied;
-  return NextResponse.json({ items: listManagedNameItems() });
+  const admin = isAdmin(getTeacher(request));
+  return NextResponse.json({
+    names: listRenamedRoomNames(),
+    ...(admin ? { items: listManagedNameItems() } : {}),
+  });
 }
 
 export async function PATCH(request: NextRequest) {
-  const denied = requireAdmin(request);
-  if (denied) return denied;
+  if (!isAdmin(getTeacher(request))) {
+    return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => ({}));
   if (
@@ -46,7 +44,7 @@ export async function PATCH(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    names: { [body.id]: body.name.trim() },
-    items: listManagedNameItems(),
+    names: listRenamedRoomNames(),
+    items: isAdmin(getTeacher(request)) ? listManagedNameItems() : undefined,
   });
 }
