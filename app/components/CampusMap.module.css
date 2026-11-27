@@ -429,7 +429,7 @@
 .floorBtn {
   width: auto;
   min-width: 40px;
-  max-width: 110px;
+  max-width: 80px;
   height: 34px;
   padding: 0 7px;
   overflow: hidden;
@@ -759,7 +759,7 @@
 }
 :global(html[data-ui="mobile"]) .floorBtn {
   min-width: 42px;
-  max-width: 92px;
+  max-width: 56px;
   height: 44px;
 }
 :global(html[data-ui="mobile"]) .floorBtnWide {
