@@ -1,13 +1,13 @@
 export type ManagedDisplayNames = Record<string, string>;
 
-export const buildingNameKey = (buildingId: string) => \`building:\${buildingId}\`;
+export const buildingNameKey = (buildingId: string) => "building:" + buildingId;
 export const floorNameKey = (buildingId: string, floor: number) =>
-  \`floor:\${buildingId}:\${floor}\`;
+  "floor:" + buildingId + ":" + floor;
 export const syntheticRoomNameKey = (
   buildingId: string,
   floor: number,
   roomId: string,
-) => \`room:\${buildingId}:\${floor}:\${roomId}\`;
+) => "room:" + buildingId + ":" + floor + ":" + roomId;
 
 export function displayName(
   names: ManagedDisplayNames,
@@ -62,7 +62,7 @@ export function fitMapLabel(
         }
         continue;
       }
-      const candidate = line ? \`\${line} \${word}\` : word;
+      const candidate = line ? line + " " + word : word;
       if (candidate.length > maxChars && line) {
         result.push(line);
         line = word;
