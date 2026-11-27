@@ -56,3 +56,6 @@ next-env.d.ts
 
 !.env.example
 !.env.capacitor.example
+
+# chatbot knowledge base uploads
+/data/knowledge/

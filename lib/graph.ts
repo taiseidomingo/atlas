@@ -1,4 +1,4 @@
-import dotsData from "./dots.json";
+import walkablePaths from "./walkablePaths.json";
 
 export type NodeId = string;
 
@@ -25,12 +25,18 @@ export interface CampusGraph {
 
 export const METERS_PER_PIXEL = 0.05;
 
-interface DotCoord {
-  x: number;
-  y: number;
+interface WalkableMap {
+  prefix: string;
+  floor: number;
+  nodes: [number, number][];
+  edges: [number, number][];
+  doors: Record<string, number[]>;
+  entrances: Record<string, number[]>;
 }
 
-const dotsMap = dotsData as Record<string, DotCoord[]>;
+const walkable = walkablePaths as unknown as {
+  maps: Record<string, WalkableMap>;
+};
 
 function buildCampusGraph(): CampusGraph {
   const nodes: GraphNode[] = [];
@@ -61,142 +67,141 @@ function buildCampusGraph(): CampusGraph {
     edges.push({ from, to, weight: w });
   }
 
-  function processMap(
-    key: string,
-    prefix: string,
-    floor: number = 1,
-    extraPairs: [number, number, number][] = [],
-  ) {
-    const dots = dotsMap[key] || [];
-    dots.forEach((d, i) => {
+  // Walkable paths traced from the gray dashes on each map image
+  // (scripts/trace-walkable-paths.py -> lib/walkablePaths.json).
+  // Edges exist only where a dashed line is drawn; nothing is linked by proximity.
+  const doorsOf = new Map<string, string[]>(); // room/place id -> its door dot ids
+  const indoorEntrancesOf = new Map<string, string[]>(); // "X-ENTRANCE|PREFIX" -> dot ids
+
+  function processMap(key: string) {
+    const map = walkable.maps[key];
+    if (!map) return;
+    const { prefix, floor } = map;
+    const dotId = (i: number) => `${prefix}-DOT-${i}`;
+    map.nodes.forEach(([x, y], i) => {
       addNode({
-        id: `${prefix}-DOT-${i}`,
+        id: dotId(i),
         name: `${prefix} path dot ${i}`,
-        x: d.x,
-        y: d.y,
+        x,
+        y,
         kind: "junction",
         floor,
       });
     });
-
-    for (let i = 0; i < dots.length; i++) {
-      for (let j = i + 1; j < dots.length; j++) {
-        const d = Math.hypot(dots[i].x - dots[j].x, dots[i].y - dots[j].y);
-        if (d <= 185) {
-          addEdge(`${prefix}-DOT-${i}`, `${prefix}-DOT-${j}`);
-        }
-      }
-    }
-
-    extraPairs.forEach(([i, j, w]) => {
-      addEdge(`${prefix}-DOT-${i}`, `${prefix}-DOT-${j}`, w);
+    map.edges.forEach(([a, b]) => addEdge(dotId(a), dotId(b)));
+    Object.entries(map.doors).forEach(([roomId, idx]) => {
+      doorsOf.set(roomId, idx.map(dotId));
     });
+    if (key !== "01") {
+      Object.entries(map.entrances).forEach(([entranceId, idx]) => {
+        indoorEntrancesOf.set(`${entranceId}|${prefix}`, idx.map(dotId));
+      });
+    }
   }
 
-  processMap("01", "CAMPUS", 1);
-  processMap("02", "OB-1", 1, [[23, 62, 5.0]]);
-  processMap("03", "OB-2", 2);
-  processMap("04", "OB-3", 3, [
-    [8, 18, 5.0],
-    [9, 59, 5.0],
-    [18, 19, 5.0],
-    [59, 60, 5.0],
+  Object.keys(walkable.maps).sort().forEach(processMap);
 
-    // Missing links in the third-floor dashed corridor:
-    // the two stair landing stubs and the east-side walkway branch.
-    [0, 7, 17.3],
-    [1, 8, 17.3],
-    [12, 62, 47.4],
-  ]);
-  processMap("05", "CL-S-1", 1);
-  processMap("06", "CL-N-1", 1);
-  processMap("07", "CTMO-1", 1);
-  processMap("08", "GYM-1", 1, [
-    // Join the upper and lower parts of the gym perimeter walkway.
-    [73, 86, 42.5],
-    [72, 87, 47.3],
+  addManualCampusWalkway();
 
-    // Join the four dashed room-entry branches to the lower corridor.
-    [142, 219, 25.0],
-    [143, 162, 19.6],
-    [144, 169, 19.4],
-    [145, 190, 23.0],
+  /**
+   * Hand-surveyed walkway nodes on the Campus Map Overview (map 01) that the
+   * tracer missed. Kept here rather than in walkablePaths.json so that
+   * re-running scripts/trace-walkable-paths.py does not drop them.
+   *
+   * The two nodes continue the north-south walkway by the Learning Room
+   * (which previously stopped at a dead end near y=2528) up to the main
+   * east-west walkway (y=2402). The east-west edge is split where the new
+   * path meets it, so routes follow the drawn walkway instead of a diagonal.
+   */
+  function addManualCampusWalkway() {
+    const chain: { id: string; x: number; y: number }[] = [
+      { id: "CAMPUS-WALK-1", x: 5858.3, y: 2455.8 }, // Node 1
+      { id: "CAMPUS-WALK-2", x: 5865.5, y: 2488.7 }, // Node 2
+    ];
+    chain.forEach(({ id, x, y }) =>
+      addNode({ id, name: `Campus walkway ${id.slice(-1)}`, x, y, kind: "junction", floor: 1 }),
+    );
+    addEdge(chain[0].id, chain[1].id);
 
-    // Join the walkable junction groups inside the open gym floor.
-    [111, 75, 39.4],
-    [58, 85, 24.0],
-    [82, 77, 9.8],
-  ]);
-  processMap("09", "HM-1", 1);
-  processMap("10", "HM-2", 2);
-  processMap("11", "HM-3", 3);
-  processMap("12", "NB-1", 1);
-  processMap("13", "NB-2", 2);
-  processMap("14", "NB-3", 3);
-  processMap("15", "NB-4", 4);
-  processMap("16", "NB-5", 5);
+    // Node 2 -> nearest traced campus dot to the south (the dead-end stub).
+    const campusDots = nodes.filter((n) => n.id.startsWith("CAMPUS-DOT-"));
+    const nearestDot = (x: number, y: number, filter: (n: GraphNode) => boolean) =>
+      campusDots
+        .filter(filter)
+        .reduce<GraphNode | null>(
+          (best, n) =>
+            !best || Math.hypot(n.x - x, n.y - y) < Math.hypot(best.x - x, best.y - y)
+              ? n
+              : best,
+          null,
+        );
+    const south = nearestDot(chain[1].x, chain[1].y, (n) => n.y > chain[1].y);
+    if (south) addEdge(chain[1].id, south.id);
 
-  function closestDot(prefix: string, x: number, y: number): GraphNode | null {
-    let best: GraphNode | null = null;
-    let bestDist = Infinity;
-    for (const node of nodes) {
-      if (node.id.startsWith(`${prefix}-DOT-`)) {
-        const dist = Math.hypot(node.x - x, node.y - y);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = node;
-        }
-      }
+    // Node 1 -> the east-west walkway directly north of it. Split the traced
+    // edge it meets at a junction placed on that edge.
+    let best: { edge: GraphEdge; px: number; py: number; d: number } | null = null;
+    for (const edge of edges) {
+      if (!edge.from.startsWith("CAMPUS-DOT-") || !edge.to.startsWith("CAMPUS-DOT-")) continue;
+      const a = byId.get(edge.from)!;
+      const b = byId.get(edge.to)!;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) continue;
+      const t = ((chain[0].x - a.x) * dx + (chain[0].y - a.y) * dy) / len2;
+      if (t <= 0 || t >= 1) continue;
+      const px = a.x + t * dx;
+      const py = a.y + t * dy;
+      if (py >= chain[0].y) continue; // must be north of Node 1
+      const d = Math.hypot(px - chain[0].x, py - chain[0].y);
+      if (!best || d < best.d) best = { edge, px, py, d };
     }
-    return best;
-  }
-
-  function linkToClosestDot(
-    nodeId: string,
-    dotPrefix: string,
-    targetX: number,
-    targetY: number,
-    weight?: number,
-  ) {
-    const dot = closestDot(dotPrefix, targetX, targetY);
-    const place = byId.get(nodeId);
-
-    if (!dot || !place) {
+    if (!best || best.d > 150) {
+      console.warn("[graph] manual campus walkway: no walkway found to join");
       return;
     }
-
-    const distanceToDoor = Math.hypot(place.x - targetX, place.y - targetY);
-
-    const toMeters = (distancePx: number) =>
-      Math.max(0.1, Math.round(distancePx * METERS_PER_PIXEL * 10) / 10);
-
-    if (distanceToDoor < 1) {
-      addEdge(nodeId, dot.id, weight);
-      return;
-    }
-
-    const doorId = `${nodeId}-DOOR`;
-
+    const joinId = "CAMPUS-WALK-JOIN";
     addNode({
-      id: doorId,
-      name: `${place.name} entrance`,
-      x: targetX,
-      y: targetY,
+      id: joinId,
+      name: "Campus walkway junction",
+      x: Math.round(best.px * 10) / 10,
+      y: Math.round(best.py * 10) / 10,
       kind: "junction",
-      floor: place.floor,
+      floor: 1,
     });
+    const { from, to } = best.edge;
+    edges.splice(edges.indexOf(best.edge), 1);
+    edgeSet.delete(from < to ? `${from}|${to}` : `${to}|${from}`);
+    addEdge(from, joinId);
+    addEdge(joinId, to);
+    addEdge(joinId, chain[0].id);
+  }
 
-    const doorNode = byId.get(doorId);
+  const toMeters = (distancePx: number) =>
+    Math.max(0.1, Math.round(distancePx * METERS_PER_PIXEL * 10) / 10);
 
-    if (!doorNode) {
+  /** Room/place -> its traced door(s). The door is the dashed stub that reaches the room. */
+  function linkToDoor(nodeId: string) {
+    const place = byId.get(nodeId);
+    const doors = doorsOf.get(nodeId);
+    if (!place) return;
+    if (!doors || doors.length === 0) {
+      console.warn(`[graph] ${nodeId} has no traced door; it is not routable`);
       return;
     }
+    doors.forEach((doorId) => {
+      const door = byId.get(doorId);
+      if (!door) return;
+      addEdge(nodeId, doorId, toMeters(Math.hypot(place.x - door.x, place.y - door.y)));
+    });
+  }
 
-    addEdge(nodeId, doorId, toMeters(distanceToDoor));
-
-    const distanceToPath = Math.hypot(doorNode.x - dot.x, doorNode.y - dot.y);
-
-    addEdge(doorId, dot.id, weight ?? toMeters(distanceToPath));
+  /** Building entrance (campus node) -> where it meets the walkway on the indoor floor. */
+  function linkEntranceIndoors(entranceId: string, prefix: string, weight: number) {
+    (indoorEntrancesOf.get(`${entranceId}|${prefix}`) ?? []).forEach((dotId) =>
+      addEdge(entranceId, dotId, weight),
+    );
   }
 
   const campusPlaces: GraphNode[] = [
@@ -368,29 +373,16 @@ function buildCampusGraph(): CampusGraph {
 
   campusPlaces.forEach((p) => {
     addNode(p);
-    linkToClosestDot(p.id, "CAMPUS", p.x, p.y);
+    linkToDoor(p.id);
   });
 
-  addEdge("NB-1-ENTRANCE", "CAMPUS-DOT-1", 5.0);
-  linkToClosestDot("NB-1-ENTRANCE", "NB-1", 3960, 2228, 5.0);
-
-  linkToClosestDot("OB-1-ENTRANCE", "CAMPUS", 3950, 3728, 5.0);
-  linkToClosestDot("OB-1-ENTRANCE", "OB-1", 3950, 3650, 5.0);
-
-  linkToClosestDot("CTMO-ENTRANCE", "CAMPUS", 2584, 2020, 5.0);
-  linkToClosestDot("CTMO-ENTRANCE", "CTMO-1", 1650, 3400, 5.0);
-
-  linkToClosestDot("HM-ENTRANCE", "CAMPUS", 2120, 4090, 5.0);
-  linkToClosestDot("HM-ENTRANCE", "HM-1", 4000, 2600, 5.0);
-
-  linkToClosestDot("CL-N-ENTRANCE", "CAMPUS", 2868, 3488, 5.0);
-  linkToClosestDot("CL-N-ENTRANCE", "CL-N-1", 7450, 2050, 5.0);
-
-  linkToClosestDot("CL-S-ENTRANCE", "CAMPUS", 5300, 3494, 5.0);
-  linkToClosestDot("CL-S-ENTRANCE", "CL-S-1", 7050, 2100, 5.0);
-
-  linkToClosestDot("GYM-ENTRANCE", "CAMPUS", 5476, 1902, 5.0);
-  linkToClosestDot("GYM-ENTRANCE", "GYM-1", 4125, 2750, 5.0);
+  linkEntranceIndoors("NB-1-ENTRANCE", "NB-1", 5.0);
+  linkEntranceIndoors("OB-1-ENTRANCE", "OB-1", 5.0);
+  linkEntranceIndoors("CTMO-ENTRANCE", "CTMO-1", 5.0);
+  linkEntranceIndoors("HM-ENTRANCE", "HM-1", 5.0);
+  linkEntranceIndoors("CL-N-ENTRANCE", "CL-N-1", 5.0);
+  linkEntranceIndoors("CL-S-ENTRANCE", "CL-S-1", 5.0);
+  linkEntranceIndoors("GYM-ENTRANCE", "GYM-1", 5.0);
 
   const ob1Rooms = [
     {
@@ -808,7 +800,7 @@ function buildCampusGraph(): CampusGraph {
 
   ob1Rooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "OB-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const ob2Rooms = [
@@ -899,7 +891,7 @@ function buildCampusGraph(): CampusGraph {
 
   ob2Rooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "OB-2", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const ob3Rooms = [
@@ -980,7 +972,7 @@ function buildCampusGraph(): CampusGraph {
 
   ob3Rooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "OB-3", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const clSRooms = [
@@ -1042,7 +1034,7 @@ function buildCampusGraph(): CampusGraph {
 
   clSRooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "CL-S-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const clNRooms = [
@@ -1104,7 +1096,7 @@ function buildCampusGraph(): CampusGraph {
 
   clNRooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "CL-N-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const ctmoRooms = [
@@ -1167,7 +1159,7 @@ function buildCampusGraph(): CampusGraph {
 
   ctmoRooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "CTMO-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const gymRooms = [
@@ -1228,7 +1220,7 @@ function buildCampusGraph(): CampusGraph {
 
   gymRooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "GYM-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   for (let f = 1; f <= 3; f++) {
@@ -1268,7 +1260,7 @@ function buildCampusGraph(): CampusGraph {
     ];
     rooms.forEach((r) => {
       addNode(r);
-      linkToClosestDot(r.id, `HM-${f}`, r.doorX, r.doorY);
+      linkToDoor(r.id);
     });
   }
 
@@ -1437,7 +1429,7 @@ function buildCampusGraph(): CampusGraph {
 
   nb1Rooms.forEach((r) => {
     addNode(r);
-    linkToClosestDot(r.id, "NB-1", r.doorX, r.doorY);
+    linkToDoor(r.id);
   });
 
   const upperDepts: Record<number, string> = {
@@ -1549,57 +1541,66 @@ function buildCampusGraph(): CampusGraph {
     ];
     rooms.forEach((r) => {
       addNode(r);
-      linkToClosestDot(r.id, `NB-${f}`, r.doorX, r.doorY);
+      linkToDoor(r.id);
     });
   }
 
-  const ob1Curve = closestDot("OB-1", 2340, 3274);
-  const ob2Curve = closestDot("OB-2", 2500, 2274);
-  if (ob1Curve && ob2Curve) addEdge(ob1Curve.id, ob2Curve.id, 8.0);
-
-  const ob1Stairs112 = closestDot("OB-1", 3200, 2400);
-  const ob3StairsL = closestDot("OB-3", 2339, 2438);
-  if (ob1Stairs112 && ob3StairsL) addEdge(ob1Stairs112.id, ob3StairsL.id, 8.0);
-
-  const ob1Stairs114 = closestDot("OB-1", 4700, 2400);
-  const ob3StairsR = closestDot("OB-3", 5660, 2438);
-  if (ob1Stairs114 && ob3StairsR) addEdge(ob1Stairs114.id, ob3StairsR.id, 8.0);
-
-  const ob1ExitCLN = closestDot("OB-1", 1151, 975);
-  const clNStairs = closestDot("CL-N-1", 7450, 2050);
-  if (ob1ExitCLN && clNStairs) addEdge(ob1ExitCLN.id, clNStairs.id, 5.0);
-
-  const ob1ExitCLS = closestDot("OB-1", 6200, 1100);
-  const clSStairs = closestDot("CL-S-1", 7050, 2100);
-  if (ob1ExitCLS && clSStairs) addEdge(ob1ExitCLS.id, clSStairs.id, 5.0);
-
-  const ob3WalkwayS = closestDot("OB-3", 742, 2588);
-  if (ob3WalkwayS && clSStairs) addEdge(ob3WalkwayS.id, clSStairs.id, 5.0);
-
-  const ob3WalkwayN = closestDot("OB-3", 7257, 2583);
-  if (ob3WalkwayN && clNStairs) addEdge(ob3WalkwayN.id, clNStairs.id, 5.0);
-
-  const hm1Stairs = closestDot("HM-1", 5150, 2700);
-  const hm2Stairs = closestDot("HM-2", 5150, 2700);
-  const hm3Stairs = closestDot("HM-3", 5150, 2700);
-  if (hm1Stairs && hm2Stairs) addEdge(hm1Stairs.id, hm2Stairs.id, 8.0);
-  if (hm2Stairs && hm3Stairs) addEdge(hm2Stairs.id, hm3Stairs.id, 8.0);
-
+  // Floor and building transitions: explicit pairs between the stair / lift /
+  // walkway nodes that already exist in the building data. Each of these nodes
+  // reaches its floor's walkway through its own traced door.
+  const transitions: [string, string, number][] = [
+    ["OB-1-CURVE-STAIRS", "OB-2.1-CURVE-STAIRS", 8.0],
+    ["OB-1-STAIRS-112", "OB-2.2-STAIRS-L", 8.0],
+    ["OB-1-STAIRS-114", "OB-2.2-STAIRS-R", 8.0],
+    ["OB-1-EXIT-CL-N", "CL-N-STAIRS", 5.0],
+    ["OB-1-EXIT-CL-S", "CL-S-STAIRS", 5.0],
+    ["OB-2.2-TO-CL-S", "CL-S-STAIRS", 5.0],
+    ["OB-2.2-TO-CL-N", "CL-N-STAIRS", 5.0],
+    ["HM-1-STAIRS", "HM-2-STAIRS", 8.0],
+    ["HM-2-STAIRS", "HM-3-STAIRS", 8.0],
+  ];
   for (let f = 1; f < 5; f++) {
-    const liftBelow = closestDot(`NB-${f}`, 3900, 900);
-    const liftAbove = closestDot(`NB-${f + 1}`, 3900, 900);
-    if (liftBelow && liftAbove) addEdge(liftBelow.id, liftAbove.id, 8.0);
-
-    const stLBelow = closestDot(`NB-${f}`, 2600, 900);
-    const stLAbove = closestDot(`NB-${f + 1}`, 2600, 900);
-    if (stLBelow && stLAbove) addEdge(stLBelow.id, stLAbove.id, 8.0);
-
-    const stRBelow = closestDot(`NB-${f}`, 5600, 900);
-    const stRAbove = closestDot(`NB-${f + 1}`, 5600, 900);
-    if (stRBelow && stRAbove) addEdge(stRBelow.id, stRAbove.id, 8.0);
+    for (const s of ["ELEVATOR", "STAIRS-L", "STAIRS-R"]) {
+      transitions.push([`NB-${f}-${s}`, `NB-${f + 1}-${s}`, 8.0]);
+    }
   }
+  transitions.forEach(([a, b, w]) => {
+    if (!byId.has(a) || !byId.has(b)) {
+      console.warn(`[graph] transition ${a} <-> ${b}: node missing`);
+      return;
+    }
+    addEdge(a, b, w);
+  });
+
+  // Offices, administrative spaces and facilities: they stay on the map and
+  // remain routable destinations, but teachers cannot claim them as classrooms.
+  nodes.forEach((n) => {
+    if (NON_CLASSROOM_IDS.has(n.id)) n.claimable = false;
+  });
 
   return { nodes, edges };
 }
+
+/** Locations that are never claimable / reservable as classrooms. */
+export const NON_CLASSROOM_IDS = new Set<NodeId>([
+  "Learning Room",
+  "CTMO-GAD", // GAD & Knowledge Management
+  "CTMO-RESEARCH", // Research Development & Extension
+  "GYM-DMST", // Department of Military Service and Tactics
+  "GYM-OSD", // Office of Sports and Development
+  "GYM-STAGE", // Stage Floor
+  "NB-1-MGMT", // Department of Management
+  "NB-1-GUIDANCE", // Guidance
+  "NB-2-DEPT", // Education Department
+  "NB-3-DEPT", // Office AD Department
+  "NB-4-DEPT", // DLMC
+  "NB-5-DEPT", // Social Department
+  "OB-1-CONFERENCE", // Conference Room
+  "OB-1-FACULTY", // Faculty
+  "OB-1-MULTIMEDIA", // Multimedia Room
+  "OB-1-SUPPLY", // Supply Office
+  "OB-2.1-DCS", // Department of Computer Studies
+  "OB-2.1-CSG", // CSG Office
+]);
 
 export const campusGraph: CampusGraph = buildCampusGraph();

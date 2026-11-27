@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeacher, isAdmin } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { listReservations } from "@/lib/reservation";
 import { getRoomName, renameRoom } from "@/lib/roomAdmin";
 import { campusGraph } from "@/lib/graph";
 import { filterActivities, listActivities } from "@/lib/activityLog";
-
-function requireAdmin(request: NextRequest): NextResponse | null {
-  const teacher = getTeacher(request);
-  return isAdmin(teacher)
-    ? null
-    : NextResponse.json({ error: "Admin access required." }, { status: 403 });
-}
 
 export async function GET(request: NextRequest) {
   const denied = requireAdmin(request);

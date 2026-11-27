@@ -112,3 +112,33 @@
 :global(html[data-ui="mobile"]) .msg {
   font-size: 1rem;
 }
+
+.sources {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  white-space: normal;
+}
+
+.actionBtn {
+  border: 1px solid #c7d2fe;
+  background: #ffffff;
+  color: #2433c4;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionBtn:hover {
+  background: #eef1ff;
+}

@@ -50,13 +50,18 @@ export function fitMapLabel(
   value: string,
   width: number,
   height: number,
+  // Largest font size in viewBox units. Floor plans use a 1365-wide viewBox;
+  // the campus overview uses 8000 units, so it passes a larger cap.
+  maxSize = 34,
+  // Multiplier on the area-based starting size (campus labels use > 1).
+  scale = 1,
 ): { lines: string[]; fontSize: number } {
   const text = value.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
   const maxWidth = Math.max(1, width * 0.86);
   const maxHeight = Math.max(1, height * 0.68);
   const startSize = Math.max(
     8,
-    Math.min(30, Math.sqrt(Math.max(1, width * height)) * 0.075),
+    Math.min(maxSize, Math.sqrt(Math.max(1, width * height)) * 0.085 * scale),
   );
 
   const wrap = (fontSize: number): string[] => {

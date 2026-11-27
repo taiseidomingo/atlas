@@ -93,6 +93,54 @@
       "checkOut": null,
       "durationMinutes": null,
       "status": "active"
+    },
+    {
+      "id": "1795790832482-ip3c1q",
+      "professor": "Demo Professor",
+      "professorId": "demo professor",
+      "nodeId": "Learning Room",
+      "roomName": "Learning Room",
+      "floor": "Campus grounds",
+      "checkIn": "2026-11-27T14:47:12.482Z",
+      "checkOut": "2026-11-27T15:05:37.643Z",
+      "durationMinutes": 18,
+      "status": "released"
+    },
+    {
+      "id": "1795792140952-y6biws",
+      "professor": "Prof. Morty",
+      "professorId": "morty",
+      "nodeId": "Smart Room",
+      "roomName": "Smart Room",
+      "floor": "Campus grounds",
+      "checkIn": "2026-11-27T15:09:00.952Z",
+      "checkOut": "2026-11-27T15:09:09.605Z",
+      "durationMinutes": 0,
+      "status": "released"
+    },
+    {
+      "id": "1795793112585-h8zl4t",
+      "professor": "Prof. Taisei Domingo",
+      "professorId": "taisei",
+      "nodeId": "CTMO-2",
+      "roomName": "CTMO 2",
+      "floor": "CTMO, 1st Floor",
+      "checkIn": "2026-11-27T15:25:12.585Z",
+      "checkOut": "2026-11-27T15:46:04.870Z",
+      "durationMinutes": 21,
+      "status": "released"
+    },
+    {
+      "id": "1795793766030-tf0gk4",
+      "professor": "Demo Professor",
+      "professorId": "demo professor",
+      "nodeId": "CL-N-5",
+      "roomName": "CL 5",
+      "floor": "CL Building (CL 5-8), 1st Floor",
+      "checkIn": "2026-11-27T15:36:06.031Z",
+      "checkOut": "2026-11-27T15:40:33.208Z",
+      "durationMinutes": 4,
+      "status": "released"
     }
   ]
 }

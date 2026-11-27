@@ -26,6 +26,15 @@ const reservations: Map<NodeId, Reservation> =
   globalStore.atlasReservations ??
   (globalStore.atlasReservations = new Map<NodeId, Reservation>());
 
+// Release claims on locations that are no longer claimable (e.g. after a room
+// was reclassified as an office), closing their activity log entries.
+reservations.forEach((reservation, nodeId) => {
+  if (!campusGraph.nodes.some((n) => n.id === nodeId && n.claimable)) {
+    finishRoomActivity(nodeId, reservation.professor);
+    reservations.delete(nodeId);
+  }
+});
+
 export function claimRoom(
   nodeId: NodeId,
   professor: string,

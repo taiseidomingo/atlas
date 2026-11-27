@@ -4,9 +4,16 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./ChatWidget.module.css";
 
+interface ChatAction {
+  label: string;
+  destinationId: string;
+}
+
 interface Msg {
   from: "me" | "bot";
   text: string;
+  actions?: ChatAction[];
+  sources?: string[];
 }
 
 interface NavigationRequest {
@@ -22,7 +29,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       from: "bot",
-      text: "Hi! I'm ATLAS. Ask me where a professor is, or how to get around campus.",
+      text: "Hi! I'm ATLAS. Ask me where a professor is, how to get around campus, or any campus question.",
     },
   ]);
   const [pendingDestination, setPendingDestination] = useState<string | null>(
@@ -65,7 +72,12 @@ export default function ChatWidget() {
       const data = await res.json();
       setMessages((m) => [
         ...m,
-        { from: "bot", text: data.reply ?? data.error ?? "No response." },
+        {
+          from: "bot",
+          text: data.reply ?? data.error ?? "No response.",
+          actions: Array.isArray(data.actions) ? data.actions : undefined,
+          sources: Array.isArray(data.sources) && data.sources.length ? data.sources : undefined,
+        },
       ]);
       const navigation = data.navigation as NavigationRequest | null | undefined;
       if (navigation?.startId) {
@@ -138,6 +150,23 @@ export default function ChatWidget() {
             className={`${styles.msg} ${m.from === "me" ? styles.me : styles.bot}`}
           >
             {m.text}
+            {m.sources && (
+              <div className={styles.sources}>Source: {m.sources.join(", ")}</div>
+            )}
+            {m.actions && m.actions.length > 0 && (
+              <div className={styles.actions}>
+                {m.actions.map((a) => (
+                  <button
+                    key={a.destinationId}
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => openNavigation({ destinationId: a.destinationId })}
+                  >
+                    🧭 {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {busy && <div className={`${styles.msg} ${styles.bot}`}>Thinking…</div>}

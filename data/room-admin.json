@@ -77,14 +77,20 @@
     "OB-1-MULTIMEDIA": "Multimedia Room",
     "OB-2.1-DCS": "Dept. of Computer Studies",
     "OB-2.1-FACULTY-STORAGE": "Storage Room (For Faculty)",
-    "OB-2.2-FUNCTION": "Function Hall"
+    "OB-2.2-FUNCTION": "Function Hall",
+    "GYM-CR": "CR",
+    "GYM-DMST": "Dept of Military Service & Tactics",
+    "GYM-OSD": "Office of Sports Development",
+    "GYM-FITTING": "Fitting Room"
   },
   "uses": {
-    "Learning Room": 1,
+    "Learning Room": 2,
     "CL-S-1": 1,
-    "Smart Room": 1,
+    "Smart Room": 2,
     "CL-S-3": 3,
     "CL-S-2": 3,
-    "CL-N-7": 1
+    "CL-N-7": 1,
+    "CTMO-2": 1,
+    "CL-N-5": 1
   }
 }

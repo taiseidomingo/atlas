@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import CampusMap, {
+  AdminMapTool,
   MapFocus,
   RouteSummary,
   buildSelectGroups,
   selectGroups,
 } from "./CampusMap";
-import PlaceCard from "./PlaceCard";
-import { campusGraph } from "@/lib/graph";
 import { routingGraph } from "@/lib/routingGraph";
 import { geoReady, toMapPoint } from "@/lib/geo";
 import { getPlaceInfo } from "@/lib/placeInfo";
@@ -47,13 +46,13 @@ const STATUS_TEXT: Record<LocStatus, string> = {
   locating: "Finding your location…",
   onCampus: "📍 Using your location as the starting point.",
   offCampus:
-    "You don't seem to be on campus. Tap the map to pin where you are, then where you want to go.",
+    "You don't seem to be on campus. Tap a place on the map to set your start.",
   denied:
-    "Location permission is off. Tap the map to pin where you are, then where you want to go.",
+    "Location is off. Tap a place on the map to set your start and destination.",
   unavailable:
-    "Couldn't get your location. Tap the map to pin where you are, then where you want to go.",
+    "Couldn't get your location. Tap a place on the map to set your start and destination.",
   uncalibrated:
-    "Tap the map to pin where you are, then where you want to go. (Live location needs lib/geo.ts calibrated.)",
+    "Tap a place on the map to set it as your start or destination.",
 };
 
 export default function NavigationView() {
@@ -66,14 +65,16 @@ export default function NavigationView() {
     const to = params.get("to");
     return to && known.has(to) ? to : null;
   });
+  const adminTool = useMemo<AdminMapTool | null>(() => {
+    const value = params.get("admin");
+    return value === "names" || value === "nodes" ? value : null;
+  }, [params]);
   const [view, setView] = useState<"campus" | BuildingId>("campus");
   const [names, setNames] = useState<Record<string, string>>({});
   const selectGroups = useMemo(() => buildSelectGroups(names), [names]);
   const [focus, setFocus] = useState<Focus>(null);
   const [route, setRoute] = useState<RouteSummary | null>(null);
   const focusNonce = useRef(0);
-  const [quickRoute, setQuickRoute] = useState(true);
-  const [showNodes, setShowNodes] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [userPos, setUserPos] = useState<{ x: number; y: number } | null>(null);
   const [status, setStatus] = useState<LocStatus>(
@@ -145,13 +146,10 @@ export default function NavigationView() {
     }
   }, [params]);
 
-  const showDirections = () => {
-    if (!start) return;
-    const b = buildingOfNode(start);
-    const node = campusGraph.nodes.find((n) => n.id === start);
+  const showLeg = (building: BuildingId | null, floor: number | null) => {
     goTo(
-      b
-        ? { kind: "building", id: b, floor: node?.floor ?? 1 }
+      building
+        ? { kind: "building", id: building, floor: floor ?? 1 }
         : { kind: "campus" },
     );
   };
@@ -161,14 +159,42 @@ export default function NavigationView() {
     [selected, names],
   );
 
+  const chooseStart = (id: string) => {
+    setStart(id);
+    if (dest === id) setDest(null);
+    setSelected(null);
+  };
+
+  const chooseDest = (id: string) => {
+    setDest(id);
+    if (start === id) setStart(null);
+    setSelected(null);
+  };
+
+  const swap = () => {
+    const nextStart = dest;
+    setDest(start);
+    setStart(nextStart);
+  };
+
+  const clear = () => {
+    setStart(null);
+    setDest(null);
+    setSelected(null);
+  };
+
   const select = (
     value: string | null,
     onChange: (v: string | null) => void,
     label: string,
+    dotClass: string,
     isStart = false,
   ) => (
     <div className={styles.field}>
-      <label>{label}</label>
+      <label>
+        <span className={`${styles.dot} ${dotClass}`} aria-hidden="true" />
+        {label}
+      </label>
       <select
         className="select"
         value={value ?? ""}
@@ -195,44 +221,36 @@ export default function NavigationView() {
     <>
       <h1 className="pageTitle">Campus Navigation</h1>
       <p className="sub">
-        Tap a place for details. With tap-to-route on, the first tap sets your
-        start and the next tap sets your destination.
+        Tap any place on the map, then set it as your start or destination.
+        The route appears as soon as both are chosen.
       </p>
 
       <div className={styles.bar}>
-        {select(start, setStart, "Start", true)}
-        {select(dest, setDest, "Destination")}
-        <button
-          type="button"
-          className="btn"
-          onClick={showDirections}
-          disabled={!start || !dest}
-        >
-          Directions
-        </button>
+        {select(start, setStart, "Start", styles.dotStart, true)}
+        {select(dest, setDest, "Destination", styles.dotDest)}
+        <div className={styles.barActions}>
+          <button
+            type="button"
+            className="btnGhost"
+            onClick={swap}
+            disabled={!start && !dest}
+            aria-label="Swap start and destination"
+            title="Swap start and destination"
+          >
+            ⇅ Swap
+          </button>
+          <button
+            type="button"
+            className="btnGhost"
+            onClick={clear}
+            disabled={!start && !dest}
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
-      <div className={styles.options}>
-        <label className={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={quickRoute}
-            onChange={(e) => setQuickRoute(e.target.checked)}
-          />
-          Tap-to-route
-        </label>
-        {process.env.NODE_ENV !== "production" && (
-          <label className={styles.toggle}>
-            <input
-              type="checkbox"
-              checked={showNodes}
-              onChange={(e) => setShowNodes(e.target.checked)}
-            />
-            Show path nodes
-          </label>
-        )}
-        <span className={styles.banner}>{STATUS_TEXT[status]}</span>
-      </div>
+      <p className={styles.banner}>{STATUS_TEXT[status]}</p>
 
       <div className={styles.tabs} role="tablist">
         {(
@@ -268,6 +286,11 @@ export default function NavigationView() {
               buildingDisplayName(names, "cl-n", "CL Building (CL 5-8)"),
               { kind: "building", id: "cl-n" },
             ],
+            [
+              "gym",
+              buildingDisplayName(names, "gym", "Gymnasium"),
+              { kind: "building", id: "gym" },
+            ],
           ] as [string, string, MapFocus][]
         ).map(([id, label, f]) => (
           <button
@@ -283,9 +306,7 @@ export default function NavigationView() {
         ))}
       </div>
 
-      <div
-        className={`${styles.stageGrid} ${info ? styles.stageGridOpen : ""}`}
-      >
+      <div className={styles.mapWrap}>
         <CampusMap
           hideSidebar
           start={start}
@@ -295,45 +316,83 @@ export default function NavigationView() {
           focus={focus}
           onViewChange={setView}
           onRoute={setRoute}
-          quickRoute={quickRoute}
           onSelect={setSelected}
           onNamesChange={setNames}
           userPos={userPos}
-          showNodes={showNodes}
+          initialAdminTool={adminTool}
         />
         {info && (
-          <PlaceCard
-            info={info}
-            isStart={start === info.id}
-            isDest={dest === info.id}
-            onStart={() => setStart(info.id)}
-            onDest={() => setDest(info.id)}
-            onClose={() => setSelected(null)}
-            onViewBuilding={
-              info.buildingId && view === "campus"
-                ? () =>
-                    goTo({
-                      kind: "building",
-                      id: info.buildingId!,
-                      floor: info.floor,
-                    })
-                : undefined
-            }
-          />
+          <div
+            className={styles.actionSheet}
+            role="dialog"
+            aria-label={`${info.name}: set as start or destination`}
+          >
+            <div className={styles.actionInfo}>
+              <strong className={styles.actionName}>{info.name}</strong>
+              <span className={styles.actionMeta}>
+                {info.type} · {info.place}
+              </span>
+            </div>
+            <div className={styles.actionButtons}>
+              <button
+                type="button"
+                className={`${styles.actionBtn} ${styles.actionStart} ${
+                  start === info.id ? styles.actionOn : ""
+                }`}
+                onClick={() => chooseStart(info.id)}
+              >
+                <span className={`${styles.dot} ${styles.dotStart}`} />
+                {start === info.id ? "Start ✓" : "Set as start"}
+              </button>
+              <button
+                type="button"
+                className={`${styles.actionBtn} ${styles.actionDest} ${
+                  dest === info.id ? styles.actionOn : ""
+                }`}
+                onClick={() => chooseDest(info.id)}
+              >
+                <span className={`${styles.dot} ${styles.dotDest}`} />
+                {dest === info.id ? "Destination ✓" : "Set as destination"}
+              </button>
+              <button
+                type="button"
+                className={styles.actionClose}
+                onClick={() => setSelected(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
+      {start && dest && !route && (
+        <p className={styles.warn} role="status">
+          No walkable route was found between these two places.
+        </p>
+      )}
+
       {route && (
-        <div className={`card ${styles.summary}`}>
+        <div className={`card ${styles.summary}`} aria-live="polite">
           <div>
             <div className={styles.big}>{Math.round(route.distance)} m</div>
-            <div style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+            <div className={styles.summaryMeta}>
               ≈ {Math.max(1, Math.round(route.distance / 80))} min walk
             </div>
           </div>
           <ol className={styles.legs}>
             {route.legs.map((l, i) => (
-              <li key={i}>{l.label}</li>
+              <li key={i}>
+                <span>{l.label}</span>
+                <button
+                  type="button"
+                  className={styles.legBtn}
+                  onClick={() => showLeg(l.building, l.floor)}
+                >
+                  Show
+                </button>
+              </li>
             ))}
           </ol>
         </div>

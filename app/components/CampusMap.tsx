@@ -81,16 +81,6 @@ type AdminNameItem = {
 
 const nodeById = routingNodeById;
 
-const edgeWeight = new Map<string, number>();
-campusGraph.edges.forEach((e) => {
-  edgeWeight.set(`${e.from}|${e.to}`, e.weight);
-  edgeWeight.set(`${e.to}|${e.from}`, e.weight);
-});
-
-const outdoorEdges = campusGraph.edges.filter(
-  (e) => !buildingOfNode(e.from) && !buildingOfNode(e.to),
-);
-
 const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
   "cl-n": { x: 132, y: 306 },
   "cl-s": { x: 132, y: 590 },
@@ -288,6 +278,11 @@ function imageRoomRect(
   return null;
 }
 
+// Largest campus label size, in 8000-wide campus viewBox units (~15px on a
+// typical desktop map).
+const CAMPUS_LABEL_MAX = 110;
+const CAMPUS_LABEL_SCALE = 1.5;
+
 function shortName(name: string): string {
   return name.replace(/ \((New|Old) Building\)$/, "");
 }
@@ -301,12 +296,42 @@ function scaleOldRect(rect: Rect): Rect {
   };
 }
 
-function nodePoint(buildingId: BuildingId, x: number, y: number): Pt {
-  if (buildingId === "old") {
-    return { x: (x / 8000) * 1365, y: (y / 4500) * 768 };
+// Single-floor buildings have one image keyed by building id; multi-floor
+// buildings are keyed "<building>-<floor>".
+const SINGLE_IMAGE_BUILDINGS = new Set<BuildingId>([
+  "ctmo",
+  "cl-n",
+  "cl-s",
+  "gym",
+]);
+
+function indoorImageFor(buildingId: BuildingId, floor: number) {
+  return (
+    indoorImages[
+      SINGLE_IMAGE_BUILDINGS.has(buildingId)
+        ? buildingId
+        : `${buildingId}-${floor}`
+    ] ?? null
+  );
+}
+
+// Graph coordinates are in the 8000x4500 image space. Floors drawn from a
+// floor-plan image use a 1365x768 viewBox, so scale them to match the image.
+// Floors without an image are drawn in the 8000x4500 plan space directly.
+function nodePoint(
+  buildingId: BuildingId,
+  floor: number,
+  x: number,
+  y: number,
+): Pt {
+  if (buildingId === "new" || !indoorImageFor(buildingId, floor)) {
+    return planPoint(x, y);
   }
-  if (buildingId === "new") return planPoint(x, y);
-  return { x, y };
+  return { x: (x / 8000) * 1365, y: (y / 4500) * 768 };
+}
+
+function isCampusAnchored(id: string): boolean {
+  return id.endsWith("-ENTRANCE");
 }
 
 function isSelectableNode(id: string): boolean {
@@ -418,8 +443,10 @@ export type MapFocus =
 
 export interface RouteSummary {
   distance: number;
-  legs: { label: string }[];
+  legs: { label: string; building: BuildingId | null; floor: number | null }[];
 }
+
+export type AdminMapTool = "names" | "nodes";
 
 interface CampusMapProps {
   start?: string | null;
@@ -430,11 +457,11 @@ interface CampusMapProps {
   focus?: (MapFocus & { nonce: number }) | null;
   onViewChange?: (view: "campus" | BuildingId) => void;
   onRoute?: (route: RouteSummary | null) => void;
-  quickRoute?: boolean;
   onSelect?: (id: string | null) => void;
   onNamesChange?: (names: Record<string, string>) => void;
   userPos?: { x: number; y: number } | null;
-  showNodes?: boolean;
+  /** Admin tool to open on load (from the admin dashboard). Ignored for non-admins. */
+  initialAdminTool?: AdminMapTool | null;
 }
 
 export default function CampusMap({
@@ -446,11 +473,10 @@ export default function CampusMap({
   focus,
   onViewChange,
   onRoute,
-  quickRoute = false,
   onSelect,
   onNamesChange,
   userPos,
-  showNodes = false,
+  initialAdminTool = null,
 }: CampusMapProps = {}) {
   const mobileUi = useMobileUi();
   const [phase, setPhase] = useState<Phase>("campus");
@@ -695,10 +721,16 @@ export default function CampusMap({
     let current: Pt[] = [];
     routeIds.forEach((id) => {
       const n = nodeById.get(id);
+      // Building entrance nodes (e.g. "CL-N-ENTRANCE") sit on the campus map,
+      // so they are not drawn on the indoor floor; the indoor line starts at
+      // the walkway point they connect to.
       const matches =
-        !!n && buildingOfNode(id) === buildingId && n.floor === floor;
+        !!n &&
+        !isCampusAnchored(id) &&
+        buildingOfNode(id) === buildingId &&
+        n.floor === floor;
       if (matches && n) {
-        current.push(nodePoint(buildingId, n.x, n.y));
+        current.push(nodePoint(buildingId, floor, n.x, n.y));
       } else if (current.length > 0) {
         lines.push(current);
         current = [];
@@ -707,30 +739,6 @@ export default function CampusMap({
     if (current.length > 0) lines.push(current);
     return lines;
   }, [routeIds, buildingId, floor]);
-
-  const indoorWalkableEdges = useMemo(() => {
-    const alwaysShow = buildingId !== "old" && buildingId !== "new";
-    if (!showNodes && !alwaysShow) return [];
-    return routingGraph.edges.flatMap((edge) => {
-      const from = nodeById.get(edge.from);
-      const to = nodeById.get(edge.to);
-      if (!from || !to) return [];
-      if (
-        buildingOfNode(edge.from) !== buildingId ||
-        buildingOfNode(edge.to) !== buildingId
-      ) {
-        return [];
-      }
-      if (from.floor !== floor || to.floor !== floor) return [];
-      return [
-        {
-          key: `${edge.from}-${edge.to}`,
-          fromPoint: nodePoint(buildingId, from.x, from.y),
-          toPoint: nodePoint(buildingId, to.x, to.y),
-        },
-      ];
-    });
-  }, [buildingId, floor, showNodes]);
 
   useEffect(() => {
     if (!focus || appliedFocus.current === focus.nonce) return;
@@ -763,7 +771,11 @@ export default function CampusMap({
       route
         ? {
             distance: route.distance,
-            legs: legs.map((l) => ({ label: l.label })),
+            legs: legs.map((l) => ({
+              label: l.label,
+              building: l.building,
+              floor: l.floor,
+            })),
           }
         : null,
     );
@@ -775,13 +787,7 @@ export default function CampusMap({
     building.floors.find((f) => f.floor === floor) ?? building.floors[0];
   const indoorImage =
     phase === "building" || phase === "out"
-      ? indoorImages[
-          buildingId === "ctmo" ||
-          buildingId === "cl-n" ||
-          buildingId === "cl-s"
-            ? buildingId
-            : `${buildingId}-${floor}`
-        ]
+      ? indoorImageFor(buildingId, floor)
       : null;
 
   const pinKind = (id: string | undefined) =>
@@ -800,16 +806,13 @@ export default function CampusMap({
     return { x: n.x, y: n.y };
   };
 
+  // Selecting a place only highlights it; the page then offers
+  // "Set as start" / "Set as destination" for it.
   const pick = (id: string) => {
     setSelectedId(id);
-    if (!quickRoute) return;
-    if (!startId) setStartId(id);
-    else if (!destId) {
-      if (id !== startId) setDestId(id);
-    } else {
-      setStartId(id);
-      setDestId(null);
-    }
+    // Notify even when the same place is tapped again, so a dismissed
+    // action card can be reopened.
+    onSelect?.(id);
   };
 
   const selectManagedLocation = (
@@ -957,6 +960,39 @@ export default function CampusMap({
     editingRoomName,
     editingRoomOriginalName,
   ]);
+
+  const toggleNameEditor = () => {
+    if (roomEditingMode) {
+      exitRoomEditingMode();
+      return;
+    }
+    setBuilderMode(false);
+    setRoomEditingMode(true);
+    setNameSearch("");
+    const previousItem = managedItems.find(
+      (item) => item.id === selectedManagedId,
+    );
+    if (previousItem) {
+      const savedName = roomNames[previousItem.id] ?? previousItem.name;
+      setEditingRoomId(previousItem.id);
+      setEditingRoomName(savedName);
+      setEditingRoomOriginalName(savedName);
+      setRoomNameError("");
+    }
+  };
+
+  // Deep link from the admin dashboard: open the requested tool once the
+  // session confirms the viewer is an admin.
+  const appliedAdminTool = useRef(false);
+  useEffect(() => {
+    if (!isAdmin || !initialAdminTool || appliedAdminTool.current) return;
+    appliedAdminTool.current = true;
+    const timer = setTimeout(() => {
+      if (initialAdminTool === "nodes") setBuilderMode(true);
+      else setRoomEditingMode(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isAdmin, initialAdminTool]);
 
   useEffect(() => {
     if (!roomEditingMode) return;
@@ -1126,14 +1162,27 @@ export default function CampusMap({
 
   return (
     <div className={styles.root}>
-      {(process.env.NODE_ENV !== "production" || isAdmin) && (
-        <section className={styles.builderPanel} aria-label="Node builder">
+      {isAdmin && (
+        <section className={styles.builderPanel} aria-label="Admin map tools">
           <div className={styles.builderActions}>
+            <span className={styles.adminBadge}>Admin tools</span>
+            <button
+              type="button"
+              className={styles.builderButton}
+              aria-pressed={roomEditingMode}
+              onClick={toggleNameEditor}
+            >
+              {roomEditingMode ? "Close name editor" : "Edit location names"}
+            </button>
             <button
               type="button"
               className={styles.builderButton}
               aria-pressed={builderMode}
-              onClick={() => setBuilderMode((active) => !active)}
+              onClick={() => {
+                if (!builderMode && roomEditingMode && !exitRoomEditingMode())
+                  return;
+                setBuilderMode((active) => !active);
+              }}
             >
               {builderMode ? "Stop node builder" : "Build map nodes"}
             </button>
@@ -1356,22 +1405,6 @@ export default function CampusMap({
                   preserveAspectRatio="none"
                   pointerEvents="none"
                 />
-                {outdoorEdges.map((e) => {
-                  const a = nodeById.get(e.from);
-                  const b = nodeById.get(e.to);
-                  if (!a || !b) return null;
-                  return (
-                    <line
-                      key={`${e.from}-${e.to}`}
-                      x1={a.x}
-                      y1={a.y}
-                      x2={b.x}
-                      y2={b.y}
-                      className={styles.walkway}
-                    />
-                  );
-                })}
-
                 {campusShapes.map((s) => {
                   const representedBuildingId =
                     s.buildingId ??
@@ -1425,6 +1458,8 @@ export default function CampusMap({
                     shapeName,
                     s.vertical ? s.h : s.w,
                     s.vertical ? s.w : s.h,
+                    CAMPUS_LABEL_MAX,
+                    CAMPUS_LABEL_SCALE,
                   );
                   const kind = pinKind(s.nodeId);
                   const selectable = !!s.nodeId || !!s.buildingId;
@@ -1485,11 +1520,13 @@ export default function CampusMap({
                           id={shapeClipId}
                           clipPathUnits="userSpaceOnUse"
                         >
+                          {/* The clip is applied in the text's own (rotated)
+                              frame, so vertical shapes swap width/height. */}
                           <rect
-                            x={s.x + 4}
-                            y={s.y + 4}
-                            width={Math.max(1, s.w - 8)}
-                            height={Math.max(1, s.h - 8)}
+                            x={cx - (s.vertical ? s.h : s.w) / 2 + 4}
+                            y={cy - (s.vertical ? s.w : s.h) / 2 + 4}
+                            width={Math.max(1, (s.vertical ? s.h : s.w) - 8)}
+                            height={Math.max(1, (s.vertical ? s.w : s.h) - 8)}
                           />
                         </clipPath>
                       </defs>
@@ -1543,10 +1580,13 @@ export default function CampusMap({
                       b.name,
                     );
                     const buildingClipId = `building-label-${b.id}`;
+                    // Horizontal label, kept within the building footprint.
                     const buildingLabelLayout = fitMapLabel(
                       buildingLabel,
-                      b.rect.h,
                       b.rect.w,
+                      b.rect.h,
+                      CAMPUS_LABEL_MAX * 1.4,
+                      CAMPUS_LABEL_SCALE,
                     );
                     const hitRects =
                       b.id === "old"
@@ -1632,7 +1672,7 @@ export default function CampusMap({
                         <text
                           clipPath={`url(#${buildingClipId})`}
                           x={cx}
-                          y={cy - 10}
+                          y={cy}
                           className={
                             roomNames[buildingNameKey(b.id)]
                               ? styles.label
@@ -1641,7 +1681,6 @@ export default function CampusMap({
                           fontSize={buildingLabelLayout.fontSize}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          transform={`rotate(-90 ${cx} ${cy - 10})`}
                         >
                           {buildingLabelLayout.lines.map((line, index) => (
                             <tspan
@@ -1737,19 +1776,6 @@ export default function CampusMap({
                     ) : null;
                   })()}
 
-                {showNodes &&
-                  routingGraph.nodes
-                    .filter((n) => !buildingOfNode(n.id))
-                    .map((n) => (
-                      <circle
-                        key={n.id}
-                        cx={n.x}
-                        cy={n.y}
-                        r={1.4}
-                        fill="#f43f5e"
-                        pointerEvents="none"
-                      />
-                    ))}
                 {userPos && (
                   <g pointerEvents="none">
                     <circle
@@ -2026,41 +2052,6 @@ export default function CampusMap({
                     );
                   })}
 
-                  {indoorWalkableEdges.map((edge) => (
-                    <line
-                      key={`walkable-edge-${edge.key}`}
-                      x1={edge.fromPoint.x}
-                      y1={edge.fromPoint.y}
-                      x2={edge.toPoint.x}
-                      y2={edge.toPoint.y}
-                      className={styles.nodeConnection}
-                      strokeWidth={6}
-                    />
-                  ))}
-
-                  {showNodes &&
-                    routingGraph.nodes
-                      .filter(
-                        (n) =>
-                          buildingOfNode(n.id) === buildingId &&
-                          n.floor === floor,
-                      )
-                      .map((n) => {
-                        const p = nodePoint(buildingId, n.x, n.y);
-                        return (
-                          <circle
-                            key={`node-${n.id}`}
-                            cx={p.x}
-                            cy={p.y}
-                            r={8}
-                            fill="#f43f5e"
-                            stroke="#ffffff"
-                            strokeWidth={2}
-                            pointerEvents="none"
-                          />
-                        );
-                      })}
-
                   {indoorRoute.map((line, i) =>
                     line.length > 1 ? (
                       <polyline
@@ -2109,7 +2100,7 @@ export default function CampusMap({
                       n.floor !== floor
                     )
                       return null;
-                    const p = nodePoint(buildingId, n.x, n.y);
+                    const p = nodePoint(buildingId, floor, n.x, n.y);
                     return (
                       <Pin
                         key={pin.label}
@@ -2129,35 +2120,6 @@ export default function CampusMap({
             )}
           </ZoomPan>
 
-          {isAdmin && (
-            <button
-              type="button"
-              className={styles.backBtn}
-              style={{ top: phase === "building" ? 112 : 12 }}
-              aria-pressed={roomEditingMode}
-              onClick={() => {
-                if (roomEditingMode) exitRoomEditingMode();
-                else {
-                  setBuilderMode(false);
-                  setRoomEditingMode(true);
-                  setNameSearch("");
-                  const previousItem = managedItems.find(
-                    (item) => item.id === selectedManagedId,
-                  );
-                  if (previousItem) {
-                    const savedName =
-                      roomNames[previousItem.id] ?? previousItem.name;
-                    setEditingRoomId(previousItem.id);
-                    setEditingRoomName(savedName);
-                    setEditingRoomOriginalName(savedName);
-                    setRoomNameError("");
-                  }
-                }
-              }}
-            >
-              {roomEditingMode ? "Close Name Editor" : "Edit Location Names"}
-            </button>
-          )}
           {phase === "building" && (
             <>
               <button

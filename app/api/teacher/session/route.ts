@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { demoLoginsEnabled, getTeacher, isAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { listClaimableRooms } from "@/lib/rooms";
 
+export const runtime = "nodejs";
+
 export async function GET(request: NextRequest) {
-  const teacher = getTeacher(request);
+  const session = getSession(request);
   return NextResponse.json({
-    teacher,
-    admin: isAdmin(teacher),
-    demo: demoLoginsEnabled(),
-    rooms: teacher ? listClaimableRooms() : [],
+    teacher: session?.name ?? null,
+    role: session?.role ?? null,
+    admin: session?.role === "admin",
+    rooms: session ? listClaimableRooms() : [],
   });
 }

@@ -6,6 +6,8 @@ import {
   verifyLogin,
 } from "@/lib/auth";
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest) {
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "local";
@@ -17,16 +19,18 @@ export async function POST(request: NextRequest) {
   }
 
   const { name, pin } = await request.json().catch(() => ({}));
-  const teacher =
-    typeof name === "string" && typeof pin === "string"
+  const login =
+    typeof name === "string" && typeof pin === "string" && name.trim() && pin
       ? verifyLogin(name, pin)
-      : null;
-  recordLogin(ip, !!teacher);
+      : { ok: false as const, error: "Enter your name and password." };
+  recordLogin(ip, login.ok);
 
-  if (!teacher)
-    return NextResponse.json({ error: "Wrong name or PIN." }, { status: 401 });
+  if (!login.ok) return NextResponse.json({ error: login.error }, { status: 401 });
 
-  const response = NextResponse.json({ teacher });
-  attachSession(response, teacher, typeof name === "string" ? name.trim().toLowerCase() : undefined);
+  const response = NextResponse.json({
+    teacher: login.session.name,
+    admin: login.session.role === "admin",
+  });
+  attachSession(response, login);
   return response;
 }

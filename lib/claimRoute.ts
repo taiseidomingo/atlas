@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProfessorIdentity, getTeacher, isAdmin } from "./auth";
+import { getProfessorIdentity, getSession } from "./auth";
 import { claimRoom, listReservations, releaseRoom } from "./reservation";
 import { listRenamedRoomNames } from "./roomAdmin";
 
@@ -11,13 +11,14 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const teacher = getTeacher(request);
+  const session = getSession(request);
+  const teacher = session?.name ?? null;
   if (!teacher)
     return NextResponse.json(
       { error: "Please log in as a teacher." },
       { status: 401 },
     );
-  if (isAdmin(teacher)) {
+  if (session?.role === "admin") {
     return NextResponse.json(
       { error: "Admin accounts cannot claim rooms." },
       { status: 403 },
@@ -51,13 +52,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const teacher = getTeacher(request);
+  const session = getSession(request);
+  const teacher = session?.name ?? null;
   if (!teacher)
     return NextResponse.json(
       { error: "Please log in as a teacher." },
       { status: 401 },
     );
-  if (isAdmin(teacher)) {
+  if (session?.role === "admin") {
     return NextResponse.json(
       { error: "Admin accounts cannot manage room claims." },
       { status: 403 },

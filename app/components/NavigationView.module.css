@@ -3,17 +3,58 @@
   grid-template-columns: 1fr 1fr auto;
   gap: 12px;
   align-items: end;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .field label {
-  display: block;
-  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--muted);
-  margin-bottom: 5px;
+  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.barActions {
+  display: flex;
+  gap: 8px;
+}
+
+.barActions button {
+  white-space: nowrap;
+}
+
+.barActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.dotStart {
+  background: #16a34a;
+}
+
+.dotDest {
+  background: #dc2626;
+}
+
+.banner {
+  margin: 0 0 12px;
+  font-size: 0.94rem;
+  color: var(--muted);
+  background: var(--brand-soft);
+  border-radius: 12px;
+  padding: 9px 14px;
 }
 
 .tabs {
@@ -30,20 +71,138 @@
   border-radius: 999px;
   padding: 8px 16px;
   font: inherit;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.tabOn {
+.tab:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.tabOn,
+.tabOn:hover {
   background: var(--brand);
   color: var(--brand-ink);
   border-color: var(--brand);
 }
 
+.mapWrap {
+  position: relative;
+}
+
+/* Compact start / destination chooser for the tapped place */
+.actionSheet {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 6;
+  transform: translateX(-50%);
+  width: min(620px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 12px 12px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(15, 26, 74, 0.18);
+}
+
+.actionInfo {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.actionName {
+  font-size: 1.02rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionMeta {
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 0.94rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.actionStart:hover {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.actionDest:hover {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.actionStart.actionOn {
+  border-color: #16a34a;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.actionDest.actionOn {
+  border-color: #dc2626;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.actionClose {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.actionClose:hover {
+  background: var(--brand-soft);
+  color: var(--ink);
+}
+
+.warn {
+  margin: 14px 0 0;
+  color: var(--danger);
+  font-size: 0.95rem;
+}
+
 .summary {
   margin-top: 14px;
   display: flex;
-  gap: 18px;
+  gap: 24px;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -54,127 +213,56 @@
   color: var(--brand);
 }
 
+.summaryMeta {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .legs {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 20px;
   color: var(--muted);
+  display: grid;
+  gap: 4px;
+}
+
+.legs li {
+  font-size: 0.95rem;
+}
+
+.legs li span {
+  margin-right: 8px;
+}
+
+.legBtn {
+  border: 0;
+  background: transparent;
+  color: var(--brand);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.legBtn:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 720px) {
   .bar {
     grid-template-columns: 1fr;
   }
-}
-
-.options {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 0.92rem;
-  cursor: pointer;
-}
-
-.banner {
-  font-size: 0.88rem;
-  color: var(--muted);
-  background: var(--brand-soft);
-  border-radius: 12px;
-  padding: 8px 12px;
-}
-
-.stageGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.stageGridOpen {
-  grid-template-columns: minmax(0, 1fr) 320px;
-}
-
-.placeCard {
-  position: relative;
-  padding: 14px;
-}
-
-.closeBtn {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  border: 0;
-  border-radius: 999px;
-  width: 30px;
-  height: 30px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  cursor: pointer;
-}
-
-.photos {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  margin-bottom: 12px;
-  border-radius: 12px;
-}
-
-.photo,
-.photoEmpty {
-  flex: none;
-  width: 100%;
-  height: 150px;
-  border-radius: 12px;
-  object-fit: cover;
-}
-
-.photoEmpty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: var(--brand-soft);
-  color: var(--muted);
-  font-size: 1.6rem;
-}
-
-.placeName {
-  margin: 0;
-  font-size: 1.15rem;
-}
-
-.placeMeta {
-  color: var(--muted);
-  font-size: 0.85rem;
-  margin: 2px 0 10px;
-}
-
-.placeDesc {
-  margin: 0 0 14px;
-  line-height: 1.45;
-  font-size: 0.93rem;
-}
-
-.placeActions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-@media (max-width: 900px) {
-  .stageGridOpen {
-    grid-template-columns: minmax(0, 1fr);
+  .actionSheet {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .actionButtons {
+    flex-wrap: wrap;
+  }
+  .actionBtn {
+    flex: 1;
+    justify-content: center;
   }
 }
 
@@ -189,40 +277,28 @@
   flex: none;
   min-height: 40px;
 }
-:global(html[data-ui="mobile"]) .options {
-  gap: 10px;
-}
-:global(html[data-ui="mobile"]) .banner {
-  width: 100%;
-}
-:global(html[data-ui="mobile"]) .toggle {
-  min-height: 40px;
-}
 
-/* place card becomes a bottom sheet */
-:global(html[data-ui="mobile"]) .placeCard {
+/* action chooser becomes a bottom sheet */
+:global(html[data-ui="mobile"]) .actionSheet {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 42;
-  max-height: 45vh;
-  max-height: 45dvh;
-  overflow-y: auto;
+  width: auto;
+  transform: none;
+  flex-direction: column;
+  align-items: stretch;
   border-radius: 20px 20px 0 0;
   padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
   box-shadow: 0 -10px 40px rgba(15, 26, 74, 0.2);
 }
-:global(html[data-ui="mobile"]) .photo,
-:global(html[data-ui="mobile"]) .photoEmpty {
-  height: 110px;
+:global(html[data-ui="mobile"]) .actionBtn {
+  flex: 1;
+  justify-content: center;
+  min-height: 44px;
 }
-:global(html[data-ui="mobile"]) .closeBtn {
-  width: 40px;
-  height: 40px;
-}
-:global(html[data-ui="mobile"]) .placeActions .btn,
-:global(html[data-ui="mobile"]) .placeActions .btnGhost {
-  padding: 10px 8px;
-  font-size: 0.85rem;
+:global(html[data-ui="mobile"]) .actionClose {
+  width: 44px;
+  height: 44px;
 }
