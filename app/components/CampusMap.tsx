@@ -1269,6 +1269,13 @@ export default function CampusMap({
                     : s.buildingId
                     ? buildingDisplayName(roomNames, s.buildingId, buildingData?.name ?? s.label)
                     : displayName(roomNames, s.nodeId, s.label);
+                  const shapeManagedId = shapeRoomKey ?? (s.buildingId ? buildingNameKey(s.buildingId) : s.nodeId);
+                  const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
+                  const shapeLabelLayout = fitMapLabel(
+                    shapeName,
+                    s.vertical ? s.h : s.w,
+                    s.vertical ? s.w : s.h,
+                  );
                   const kind = pinKind(s.nodeId);
                   const selectable = !!s.nodeId || !!s.buildingId;
                   const cls = [
@@ -1310,22 +1317,41 @@ export default function CampusMap({
                         width={s.w}
                         height={s.h}
                         rx={3}
-                        className={campusMap01 ? styles.imageHitbox : cls}
+                        className={campusMap01
+                          ? styles.imageHitbox + " " + (
+                              (roomEditingMode && selectedManagedId === (shapeManagedId ?? "")) ||
+                              (selectedId && selectedId === s.nodeId)
+                                ? styles.isSelected
+                                : ""
+                            )
+                          : cls}
                       />
                       <text
                         x={cx}
                         y={cy}
                         className={
-                          campusMap01 ? styles.imageLabelHidden : styles.label
+                          campusMap01 && !shapeHasOverride
+                            ? styles.imageLabelHidden
+                            : styles.label
                         }
-                        fontSize={s.fontSize ?? 11}
+                        fontSize={shapeLabelLayout.fontSize}
                         textAnchor="middle"
                         dominantBaseline="central"
                         transform={
                           s.vertical ? `rotate(-90 ${cx} ${cy})` : undefined
                         }
                       >
-                        {shapeName}
+                        {shapeLabelLayout.lines.map((line, index) => (
+                          <tspan
+                            key={index}
+                            x={cx}
+                            dy={index === 0
+                              ? -((shapeLabelLayout.lines.length - 1) * shapeLabelLayout.fontSize * 0.58)
+                              : shapeLabelLayout.fontSize * 1.16}
+                          >
+                            {line}
+                          </tspan>
+                        ))}
                       </text>
                       <title>{shapeName}</title>
                     </g>
@@ -1337,6 +1363,8 @@ export default function CampusMap({
                   .map((b) => {
                     const cx = b.rect.x + b.rect.w / 2;
                     const cy = b.rect.y + b.rect.h / 2;
+                    const buildingLabel = buildingDisplayName(roomNames, b.id, b.name);
+                    const buildingLabelLayout = fitMapLabel(buildingLabel, b.rect.h, b.rect.w);
                     const hitRects =
                       b.id === "old"
                         ? [
@@ -1391,13 +1419,23 @@ export default function CampusMap({
                         <text
                           x={cx}
                           y={cy - 10}
-                          className={styles.imageLabelHidden}
-                          fontSize={15}
+                          className={roomNames[buildingNameKey(b.id)] ? styles.label : styles.imageLabelHidden}
+                          fontSize={buildingLabelLayout.fontSize}
                           textAnchor="middle"
                           dominantBaseline="central"
                           transform={`rotate(-90 ${cx} ${cy - 10})`}
                         >
-                          {b.name}
+                          {buildingLabelLayout.lines.map((line, index) => (
+                            <tspan
+                              key={index}
+                              x={cx}
+                              dy={index === 0
+                                ? -((buildingLabelLayout.lines.length - 1) * buildingLabelLayout.fontSize * 0.58)
+                                : buildingLabelLayout.fontSize * 1.16}
+                            >
+                              {line}
+                            </tspan>
+                          ))}
                         </text>
                         <text
                           x={cx}
@@ -1677,7 +1715,7 @@ export default function CampusMap({
                                 room.openBuildingId,
                                 room.openFloor ?? 1,
                               );
-                            } else {
+                            } else if (room.nodeId) {
                               selectNode(room.nodeId);
                             }
                           }
