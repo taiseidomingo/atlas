@@ -271,6 +271,7 @@ export default function NavigationView() {
           onRoute={setRoute}
           quickRoute={quickRoute}
           onSelect={setSelected}
+          onNamesChange={setNames}
           userPos={userPos}
           showNodes={showNodes}
         />
