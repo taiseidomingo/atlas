@@ -859,8 +859,16 @@ export default function CampusMap({
             kind: "building",
           });
         }
-      } else if (shape.nodeId) {
-        selectManagedLocation(shape.nodeId, shape.label, { nodeId: shape.nodeId, kind: "area" });
+      } else {
+        const representedBuilding = buildings.find((candidate) => candidate.id === shape.id);
+        if (representedBuilding) {
+          selectManagedLocation(buildingNameKey(representedBuilding.id), representedBuilding.name, {
+            buildingId: representedBuilding.id,
+            kind: "building",
+          });
+        } else if (shape.nodeId) {
+          selectManagedLocation(shape.nodeId, shape.label, { nodeId: shape.nodeId, kind: "area" });
+        }
       }
       return;
     }
@@ -1257,19 +1265,22 @@ export default function CampusMap({
                 })}
 
                 {campusShapes.map((s) => {
-                  const buildingData = s.buildingId ? buildings.find((candidate) => candidate.id === s.buildingId) : undefined;
+                  const representedBuildingId = s.buildingId ?? buildings.find((candidate) => candidate.id === s.id)?.id;
+                  const buildingData = representedBuildingId
+                    ? buildings.find((candidate) => candidate.id === representedBuildingId)
+                    : undefined;
                   const matchingRoom = buildingData?.floors
                     .map((candidate) => ({ floor: candidate.floor, room: candidate.rooms.find((room) => room.id === s.id) }))
                     .find((entry) => !!entry.room);
-                  const shapeRoomKey = matchingRoom?.room && s.buildingId
-                    ? matchingRoom.room.nodeId ?? syntheticRoomNameKey(s.buildingId, matchingRoom.floor, matchingRoom.room.id)
+                  const shapeRoomKey = matchingRoom?.room && representedBuildingId
+                    ? matchingRoom.room.nodeId ?? syntheticRoomNameKey(representedBuildingId, matchingRoom.floor, matchingRoom.room.id)
                     : undefined;
+                  const shapeManagedId = shapeRoomKey ?? (representedBuildingId ? buildingNameKey(representedBuildingId) : s.nodeId);
                   const shapeName = shapeRoomKey && matchingRoom?.room
                     ? displayName(roomNames, shapeRoomKey, matchingRoom.room.label)
-                    : s.buildingId
-                    ? buildingDisplayName(roomNames, s.buildingId, buildingData?.name ?? s.label)
+                    : representedBuildingId
+                    ? buildingDisplayName(roomNames, representedBuildingId, buildingData?.name ?? s.label)
                     : displayName(roomNames, s.nodeId, s.label);
-                  const shapeManagedId = shapeRoomKey ?? (s.buildingId ? buildingNameKey(s.buildingId) : s.nodeId);
                   const shapeHasOverride = !!(shapeManagedId && roomNames[shapeManagedId]);
                   const shapeLabelLayout = fitMapLabel(
                     shapeName,
@@ -1300,7 +1311,7 @@ export default function CampusMap({
                       onClick={() => onShapeClick(s)}
                       role={selectable ? "button" : undefined}
                       tabIndex={selectable ? 0 : undefined}
-                      aria-label={selectable ? `${s.label}, select` : undefined}
+                      aria-label={selectable ? `${shapeName}, select` : undefined}
                       onKeyDown={(e) => {
                         if (
                           selectable &&
