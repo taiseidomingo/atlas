@@ -607,7 +607,7 @@ export default function CampusMap({
       let label = "Walk outdoors";
       if (b) {
         const plan = buildingById[b].floors.find((f) => f.floor === n.floor);
-        label = `${buildingById[b].name}, ${plan?.name ?? `Floor ${n.floor}`}`;
+        label = `${buildingDisplayName(roomNames, b, buildingById[b].name)}, ${floorDisplayName(roomNames, b, n.floor ?? 1, plan?.name ?? `Floor ${n.floor}`)}`;
       }
       result.push({
         key,
@@ -617,7 +617,7 @@ export default function CampusMap({
       });
     });
     return result;
-  }, [routeIds]);
+  }, [routeIds, roomNames]);
 
   const campusRoute = useMemo(() => {
     const startBuilding = startId ? buildingOfNode(startId) : null;
@@ -1023,7 +1023,7 @@ export default function CampusMap({
       {
         id: points.length + 1,
         mapKey,
-        label: phase === "campus" ? "Campus" : `${building.name}, ${plan.name}`,
+        label: phase === "campus" ? "Campus" : `${currentBuildingName}, ${currentFloorName}`,
         ...coordinates,
       },
     ]);
