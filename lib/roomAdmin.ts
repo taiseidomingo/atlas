@@ -35,6 +35,12 @@ const roomUses =
   globalStore.atlasRoomUses ??
   (globalStore.atlasRoomUses = new Map<string, number>());
 
+const buildingNameNodeAliases: Record<string, string> = {
+  "CTMO building": "ctmo",
+  "HM building": "hm",
+  Gymnasium: "gym",
+};
+
 const adminDataFile = path.join(process.cwd(), "data", "room-admin.json");
 
 try {
@@ -84,6 +90,10 @@ export function getManagedName(id: string, fallback?: string): string {
 }
 
 export function getRoomName(id: string, fallback?: string): string {
+  const saved = roomNames.get(id);
+  if (saved) return saved;
+  const buildingAlias = buildingNameNodeAliases[id];
+  if (buildingAlias) return getBuildingName(buildingAlias);
   return getManagedName(
     id,
     fallback ?? campusGraph.nodes.find((node) => node.id === id)?.name ?? id,
@@ -161,7 +171,7 @@ export function listManagedNameItems(): ManagedNameItem[] {
   campusGraph.nodes
     .filter((node) => node.kind === "entrance" || node.kind === "gate")
     .forEach((node) => {
-      if (items.has(node.id)) return;
+      if (items.has(node.id) || buildingNameNodeAliases[node.id]) return;
       const buildingId =
         node.id.startsWith("NB-") ? "new" :
         node.id.startsWith("OB-") ? "old" :
