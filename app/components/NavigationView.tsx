@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import CampusMap, { MapFocus, RouteSummary, buildSelectGroups, selectGroups } from "./CampusMap";
 import PlaceCard from "./PlaceCard";
 import { buildingOfNode } from "@/lib/mapData";
+import { buildingDisplayName } from "@/lib/locationNames";
 import type { BuildingId } from "@/lib/mapData";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph } from "@/lib/routingGraph";
