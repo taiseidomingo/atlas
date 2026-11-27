@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { campusGraph } from "./graph";
-import { getRoomName } from "./roomAdmin";
+import { getBuildingName, getFloorName, getRoomName } from "./roomAdmin";
 import { buildingById, buildingOfNode } from "./mapData";
 
 export interface RoomActivity {
@@ -66,7 +66,7 @@ export function startRoomActivity(
     nodeId,
     roomName: getRoomName(nodeId, node?.name ?? nodeId),
     floor: building
-      ? `${building.name}, ${floorPlan?.name ?? `Floor ${node?.floor ?? 1}`}`
+      ? `${getBuildingName(building.id, building.name)}, ${getFloorName(building.id, node?.floor ?? 1, floorPlan?.name)}`
       : "Campus grounds",
     checkIn: new Date().toISOString(),
     checkOut: null,
@@ -130,9 +130,21 @@ export function finishProfessorActivities(professor: string): void {
 }
 
 export function listActivities(): RoomActivity[] {
-  return [...store.activities].sort((a, b) =>
-    b.checkIn.localeCompare(a.checkIn),
-  );
+  return [...store.activities]
+    .map((activity) => {
+      const node = campusGraph.nodes.find((candidate) => candidate.id === activity.nodeId);
+      const buildingId = buildingOfNode(activity.nodeId);
+      const building = buildingId ? buildingById[buildingId] : null;
+      const floorPlan = building?.floors.find((floor) => floor.floor === node?.floor);
+      return {
+        ...activity,
+        roomName: getRoomName(activity.nodeId, node?.name ?? activity.roomName),
+        floor: building && buildingId
+          ? `${getBuildingName(buildingId, building.name)}, ${getFloorName(buildingId, node?.floor ?? 1, floorPlan?.name)}`
+          : "Campus grounds",
+      };
+    })
+    .sort((a, b) => b.checkIn.localeCompare(a.checkIn));
 }
 
 export function filterActivities(
