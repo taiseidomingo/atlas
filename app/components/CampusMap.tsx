@@ -9,8 +9,13 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import styles from "./CampusMap.module.css";
-import ZoomPan from "./ZoomPan";
-import { useMobileUi } from "@/lib/useMobileUi";
+import ZoomPan, {
+  useMapScale,
+  type Insets,
+  type MapFrame,
+  type MapMenuItem,
+  type ZoomTarget,
+} from "./ZoomPan";
 import campusMap01 from "../assets/ATLAS-map-01.png";
 import campusMap02 from "../assets/ATLAS-map-02.png";
 import campusMap03 from "../assets/ATLAS-map-03.png";
@@ -29,7 +34,7 @@ import campusMap15 from "../assets/ATLAS-map-15.png";
 import campusMap16 from "../assets/ATLAS-map-16.png";
 import { campusGraph } from "@/lib/graph";
 import { routingGraph, routingNodeById } from "@/lib/routingGraph";
-import { findShortestPath } from "@/lib/pathfinding";
+import { computePath } from "@/lib/routeGuide";
 import {
   buildingById,
   buildingOfNode,
@@ -80,21 +85,6 @@ type AdminNameItem = {
 };
 
 const nodeById = routingNodeById;
-
-const clExitPoints: Record<"cl-n" | "cl-s", Pt> = {
-  "cl-n": { x: 132, y: 306 },
-  "cl-s": { x: 132, y: 590 },
-};
-
-function clExitForNode(id: string): Pt | null {
-  if (id.startsWith("CL-N-") || id === "OB-1-CL-N-EXIT" || id === "OB-2-CL-N") {
-    return clExitPoints["cl-n"];
-  }
-  if (id.startsWith("CL-S-") || id === "OB-1-CL-S-EXIT" || id === "OB-2-CL-S") {
-    return clExitPoints["cl-s"];
-  }
-  return null;
-}
 
 const indoorImages: Record<
   string,
@@ -397,44 +387,377 @@ function zoomTransform(id: BuildingId): string {
   }%) scale(${k})`;
 }
 
+// Marker height on screen, in CSS pixels, whatever the zoom level.
+const PIN_PX = 40;
+// Marker drawing height in its own units (see the path below).
+const PIN_UNITS = 32;
+
+/**
+ * Map marker that keeps the same on-screen size at every zoom level:
+ * its scale is divided by the viewport's --zoom variable.
+ */
 function Pin({
   x,
   y,
   color,
   label,
-  scale,
+  viewBoxWidth,
   pulse,
+  ring,
+  title,
 }: {
   x: number;
   y: number;
   color: string;
   label: string;
-  scale: number;
+  viewBoxWidth: number;
   pulse?: boolean;
+  ring?: boolean;
+  title?: string;
 }) {
+  const { baseWidth } = useMapScale();
+  const k = PIN_PX / PIN_UNITS / Math.max(0.0001, baseWidth / viewBoxWidth);
   return (
-    <g
-      transform={`translate(${x} ${y}) scale(${scale})`}
-      className={pulse ? styles.pinPulse : undefined}
-      pointerEvents="none"
-    >
-      <path
-        d="M0 0 C -3 -7 -10 -12 -10 -20 A 10 10 0 1 1 10 -20 C 10 -12 3 -7 0 0 Z"
-        fill={color}
-        stroke="#ffffff"
-        strokeWidth={1.6}
-      />
-      <text
-        y={-16.5}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={700}
-        fill="#ffffff"
+    <g transform={`translate(${x} ${y})`} pointerEvents="none">
+      <g
+        className={styles.pin}
+        style={{ transform: `scale(calc(${k.toFixed(4)} / var(--zoom, 1)))` }}
       >
-        {label}
-      </text>
+        {ring && <circle r={11} className={styles.pinRing} style={{ fill: color, stroke: color }} />}
+        <ellipse cx={0} cy={0} rx={5} ry={2} fill="rgba(15,23,42,0.28)" />
+        <g className={pulse ? styles.pinBob : undefined}>
+          <path
+            d="M0 0 C -3 -8 -11 -13 -11 -21 A 11 11 0 1 1 11 -21 C 11 -13 3 -8 0 0 Z"
+            fill={color}
+            stroke="#ffffff"
+            strokeWidth={2}
+          />
+          <circle cy={-21} r={7.2} fill="#ffffff" opacity={0.22} />
+          <text
+            y={-17.4}
+            textAnchor="middle"
+            fontSize={label.length > 1 ? 8.5 : 11}
+            fontWeight={800}
+            fill="#ffffff"
+          >
+            {label}
+          </text>
+        </g>
+        {title && <title>{title}</title>}
+      </g>
     </g>
   );
+}
+
+/**
+ * Small route marker (floor change, exit, entrance) that keeps the same
+ * on-screen size at every zoom level. Tappable when it leads somewhere.
+ */
+function Tag({
+  x,
+  y,
+  label,
+  tone,
+  viewBoxWidth,
+  onClick,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  tone: "up" | "down" | "exit" | "enter";
+  viewBoxWidth: number;
+  onClick?: () => void;
+}) {
+  const { baseWidth } = useMapScale();
+  // 1 unit inside the marker = 1 CSS pixel at zoom 1.
+  const k = 1 / Math.max(0.0001, baseWidth / viewBoxWidth);
+  const w = label.length * 7.4 + 22;
+  return (
+    <g
+      transform={`translate(${x} ${y})`}
+      className={`${styles.tag} ${styles[`tag_${tone}`]} ${onClick ? styles.tagLink : ""}`}
+      onClick={(e) => {
+        if (!onClick) return;
+        e.stopPropagation();
+        onClick();
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? `Go: ${label}` : label}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <g style={{ transform: `scale(calc(${k.toFixed(4)} / var(--zoom, 1)))` }}>
+        <rect x={-w / 2} y={-38} width={w} height={26} rx={13} />
+        <path d="M-6 -12 L0 -4 L6 -12 Z" />
+        <text y={-21} textAnchor="middle" dominantBaseline="central">
+          {label}
+        </text>
+      </g>
+    </g>
+  );
+}
+
+/**
+ * How large the map is drawn (content width in CSS pixels) for each kind of
+ * view. Navigation-focused: places and routes are shown close up; the whole
+ * campus only when asked for ("whole map" button).
+ */
+const MAP_WIDTH = {
+  // Campus labels ~10-18px on a phone, a few blocks in view.
+  campusDefault: { px: 1250, perScreen: 1.7 },
+  // A searched place / professor's office / start point.
+  campusPlace: { px: 1800, perScreen: 2.6 },
+  // Short routes get this close; long ones zoom out just enough to fit.
+  campusRouteMax: { px: 2300, perScreen: 3.2 },
+};
+
+/**
+ * Indoor zoom in screen pixels per original map unit (the 8000-wide sheet),
+ * the same physical scale on every floor of every building.
+ */
+const INDOOR_PX_PER_UNIT = {
+  max: 0.15, // default view on large screens (never below the floor's readable scale)
+  place: 0.19, // a searched / tapped room
+  routeMax: 0.16, // short indoor routes get this close
+};
+
+/** Bounding box (as map fractions) around points, padded for markers. */
+function boxAround(pts: Pt[], size: { w: number; h: number }) {
+  const xs = pts.map((p) => p.x / size.w);
+  const ys = pts.map((p) => p.y / size.h);
+  return {
+    x0: Math.min(...xs) - 0.05,
+    // Markers stand above their point, so leave more room on top.
+    y0: Math.min(...ys) - 0.08,
+    x1: Math.max(...xs) + 0.05,
+    y1: Math.max(...ys) + 0.035,
+  };
+}
+
+/** Where a place's marker goes on the campus overview. */
+function pinPosCampus(id: string): Pt | null {
+  const n = nodeById.get(id);
+  if (!n) return null;
+  const b = buildingOfNode(id);
+  if (b) {
+    const r = buildingById[b].rect;
+    return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  }
+  return { x: n.x, y: n.y };
+}
+
+/** Size of the floor-plan drawing for a building floor. */
+function floorViewSize(b: BuildingId, f: number) {
+  const img = indoorImageFor(b, f);
+  return img ? { w: img.width, h: img.height } : { w: CAMPUS_VIEWBOX.w, h: CAMPUS_VIEWBOX.h };
+}
+
+/**
+ * Where a place sits: a building floor (with its point in that floor's
+ * drawing) or the campus overview (with its point as map fractions).
+ */
+function placeView(id: string):
+  | { building: BuildingId; floor: number; p: Pt }
+  | { building: null; floor: null; fx: number; fy: number }
+  | null {
+  const n = nodeById.get(id);
+  if (!n) return null;
+  const b = buildingOfNode(id);
+  if (b && !isCampusAnchored(id)) {
+    const f = n.floor ?? 1;
+    return { building: b, floor: f, p: nodePoint(b, f, n.x, n.y) };
+  }
+  const p = pinPosCampus(id);
+  if (!p) return null;
+  return { building: null, floor: null, fx: p.x / CAMPUS_VIEWBOX.w, fy: p.y / CAMPUS_VIEWBOX.h };
+}
+
+// ---------------------------------------------------------------------------
+// Indoor floor plans
+// ---------------------------------------------------------------------------
+
+/** A room's rectangle in its floor drawing's units (null if not drawn). */
+function roomRect(b: BuildingId, f: number, room: PlanRoom): Rect | null {
+  if (!indoorImageFor(b, f)) return planRect(room);
+  return b === "old" ? scaleOldRect(room) : imageRoomRect(b, f, room.id);
+}
+
+/** Drawing units per original 8000-wide map unit, to size things alike on every floor. */
+function unitsPerMapUnit(b: BuildingId, f: number): number {
+  return floorViewSize(b, f).w / CAMPUS_VIEWBOX.w;
+}
+
+const contentCache = new Map<string, Rect>();
+
+/**
+ * The part of a floor drawing that actually has rooms and walkways on it,
+ * padded a little. Showing only this (instead of the whole 16:9 sheet)
+ * removes the empty margins around long, thin buildings.
+ */
+function floorContent(b: BuildingId, f: number): Rect {
+  const key = `${b}:${f}`;
+  const cached = contentCache.get(key);
+  if (cached) return cached;
+  const size = floorViewSize(b, f);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const plan = buildingById[b].floors.find((fl) => fl.floor === f);
+  plan?.rooms.forEach((room) => {
+    const r = roomRect(b, f, room);
+    if (!r) return;
+    xs.push(r.x, r.x + r.w);
+    ys.push(r.y, r.y + r.h);
+  });
+  routingGraph.nodes.forEach((n) => {
+    if (buildingOfNode(n.id) !== b || (n.floor ?? 1) !== f || isCampusAnchored(n.id)) return;
+    const p = nodePoint(b, f, n.x, n.y);
+    xs.push(p.x);
+    ys.push(p.y);
+  });
+  let rect: Rect = { x: 0, y: 0, w: size.w, h: size.h };
+  if (xs.length > 1) {
+    const pad = Math.max(size.w, size.h) * 0.03;
+    const x0 = Math.max(0, Math.min(...xs) - pad);
+    const y0 = Math.max(0, Math.min(...ys) - pad);
+    const x1 = Math.min(size.w, Math.max(...xs) + pad);
+    const y1 = Math.min(size.h, Math.max(...ys) + pad);
+    rect = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+  contentCache.set(key, rect);
+  return rect;
+}
+
+/**
+ * How a floor is shown: cropped to its content and, on portrait screens,
+ * turned a quarter turn clockwise so long buildings run down the screen.
+ * A rotation keeps every proportion, distance and room position intact.
+ */
+interface IndoorDisplay {
+  crop: Rect;
+  rotated: boolean;
+  /** Size of the displayed drawing (after rotation). */
+  w: number;
+  h: number;
+  /** SVG transform from drawing units to displayed units. */
+  transform: string;
+}
+
+function indoorDisplay(b: BuildingId, f: number, rotated: boolean): IndoorDisplay {
+  const crop = floorContent(b, f);
+  return rotated
+    ? {
+        crop,
+        rotated,
+        w: crop.h,
+        h: crop.w,
+        transform: `matrix(0 1 -1 0 ${crop.y + crop.h} ${-crop.x})`,
+      }
+    : { crop, rotated, w: crop.w, h: crop.h, transform: `translate(${-crop.x} ${-crop.y})` };
+}
+
+function toDisplay(d: IndoorDisplay, p: Pt): Pt {
+  return d.rotated
+    ? { x: d.crop.y + d.crop.h - p.y, y: p.x - d.crop.x }
+    : { x: p.x - d.crop.x, y: p.y - d.crop.y };
+}
+
+export type RoomCategory =
+  | "classroom"
+  | "lab"
+  | "office"
+  | "facility"
+  | "cr"
+  | "stairs"
+  | "storage"
+  | "other";
+
+export const CATEGORY_LABEL: Record<RoomCategory, string> = {
+  classroom: "Classroom",
+  lab: "Laboratory",
+  office: "Office",
+  facility: "Facility",
+  cr: "Comfort room",
+  stairs: "Stairs / elevator",
+  storage: "Storage",
+  other: "Other",
+};
+
+/** Room category from the existing room type and name (no new data). */
+export function roomCategory(type: string, name: string): RoomCategory {
+  const t = `${type} ${name}`.toLowerCase();
+  if (/stair|elevator|\bexit\b|walkway/.test(t)) return "stairs";
+  if (/comfort|\bcr\b|toilet|restroom/.test(t)) return "cr";
+  if (/\blab\b|laborator/.test(t)) return "lab";
+  if (/storage|stock|stockroom/.test(t)) return "storage";
+  if (/classroom|^room\b|\brm\b|\broom \d|\bcl \d|\bhm \d/.test(t)) return "classroom";
+  if (
+    /office|dept|department|registrar|cashier|guidance|osas|dean|admission|security|discipline|faculty|csg|\bido\b|\bmis\b|research|development|services|alumni|management|military|sports/.test(
+      t,
+    )
+  )
+    return "office";
+  if (/library|hall|conference|multimedia|radio|\btv\b|clinic|kitchen|fitting|stage|smart|learning|gym/.test(t))
+    return "facility";
+  return "other";
+}
+
+/** Short floor label for floor buttons ("1F", "2.1F"). */
+function floorShort(names: Record<string, string>, b: BuildingId, f: number): string {
+  const custom = names[floorNameKey(b, f)];
+  if (custom) return custom;
+  if (b === "old") return f === 1 ? "1F" : f === 2 ? "2.1F" : f === 3 ? "2.2F" : `${f}F`;
+  return `${f}F`;
+}
+
+/**
+ * Default indoor zoom for a floor (px per map unit): enough that a typical
+ * room is ~46px on its short side, so dense floors open closer than
+ * floors with a few large rooms.
+ */
+const readableCache = new Map<string, number>();
+function readableScale(b: BuildingId, f: number): number {
+  const key = `${b}:${f}`;
+  const cached = readableCache.get(key);
+  if (cached) return cached;
+  const u = unitsPerMapUnit(b, f);
+  const plan = buildingById[b].floors.find((fl) => fl.floor === f);
+  const sides = (plan?.rooms ?? [])
+    .map((room) => roomRect(b, f, room))
+    .filter((r): r is Rect => !!r)
+    .map((r) => Math.min(r.w, r.h) / u)
+    .sort((x, y) => x - y);
+  const median = sides.length ? sides[Math.floor(sides.length / 2)] : 600;
+  const k = Math.min(0.2, Math.max(0.085, 46 / median));
+  readableCache.set(key, k);
+  return k;
+}
+
+/** Walkway segments of one floor (from the routing graph), in drawing units. */
+const hallwayCache = new Map<string, [Pt, Pt][]>();
+function floorHallways(b: BuildingId, f: number): [Pt, Pt][] {
+  const key = `${b}:${f}`;
+  const cached = hallwayCache.get(key);
+  if (cached) return cached;
+  const on = (id: string) => {
+    const n = nodeById.get(id);
+    return !!n && buildingOfNode(id) === b && (n.floor ?? 1) === f && !isCampusAnchored(id);
+  };
+  const segs: [Pt, Pt][] = [];
+  for (const e of routingGraph.edges) {
+    if (!on(e.from) || !on(e.to)) continue;
+    const a = nodeById.get(e.from)!;
+    const c = nodeById.get(e.to)!;
+    // Room-to-door links are drawn as part of the room, not as hallway.
+    if (a.kind !== "junction" && c.kind !== "junction") continue;
+    segs.push([nodePoint(b, f, a.x, a.y), nodePoint(b, f, c.x, c.y)]);
+  }
+  hallwayCache.set(key, segs);
+  return segs;
 }
 
 export type MapFocus =
@@ -458,10 +781,25 @@ interface CampusMapProps {
   onViewChange?: (view: "campus" | BuildingId) => void;
   onRoute?: (route: RouteSummary | null) => void;
   onSelect?: (id: string | null) => void;
+  /** Floor shown inside a building (null on the campus overview). */
+  onFloorChange?: (floor: number | null) => void;
   onNamesChange?: (names: Record<string, string>) => void;
   userPos?: { x: number; y: number } | null;
   /** Admin tool to open on load (from the admin dashboard). Ignored for non-admins. */
   initialAdminTool?: AdminMapTool | null;
+  /** Fly to this place and highlight it (new nonce = new request). */
+  focusPlace?: { id: string; nonce: number; mode?: "place" | "context" } | null;
+  /** Screen edges covered by the page's own overlays (tabs, bottom bars). */
+  insets?: Partial<Insets>;
+  /** The page has its own building switcher (with a way back to campus). */
+  hideBackButton?: boolean;
+  /** Page-level actions for the map's "more" menu (e.g. full screen). */
+  extraMenuItems?: MapMenuItem[];
+  /** Bumped to frame the whole route. */
+  routeNonce?: number;
+  /** "Tap your current location" mode: taps report places via onPick. */
+  picking?: boolean;
+  onPick?: (id: string) => void;
 }
 
 export default function CampusMap({
@@ -474,11 +812,33 @@ export default function CampusMap({
   onViewChange,
   onRoute,
   onSelect,
+  onFloorChange,
   onNamesChange,
   userPos,
   initialAdminTool = null,
+  focusPlace = null,
+  routeNonce = 0,
+  picking = false,
+  onPick,
+  insets: pageInsets,
+  hideBackButton = false,
+  extraMenuItems = [],
 }: CampusMapProps = {}) {
-  const mobileUi = useMobileUi();
+  const [zoomTarget, setZoomTarget] = useState<ZoomTarget | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const targetNonce = useRef(0);
+  // Map area size, to choose portrait (rotated) or landscape floor plans.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageSize, setStageSize] = useState({ w: 0, h: 0 });
+  const [rotatePref, setRotatePref] = useState<"auto" | "on" | "off">("auto");
+  const [legendOpen, setLegendOpen] = useState(false);
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setStageSize({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [phase, setPhase] = useState<Phase>("campus");
   const [zoomed, setZoomed] = useState(false);
   const [buildingId, setBuildingId] = useState<BuildingId>("new");
@@ -621,27 +981,7 @@ export default function CampusMap({
     setDestId(startId);
   }, [destId, startId, setStartId, setDestId]);
 
-  const route = useMemo(() => {
-    if (!startId || !destId) return null;
-    if (!nodeById.has(startId) || !nodeById.has(destId)) return null;
-    const startBuilding = buildingOfNode(startId);
-    const destinationBuilding = buildingOfNode(destId);
-    const sameBuilding =
-      startBuilding !== null && startBuilding === destinationBuilding;
-    const graph = sameBuilding
-      ? {
-          nodes: routingGraph.nodes.filter(
-            (node) => buildingOfNode(node.id) === startBuilding,
-          ),
-          edges: routingGraph.edges.filter(
-            (edge) =>
-              buildingOfNode(edge.from) === startBuilding &&
-              buildingOfNode(edge.to) === startBuilding,
-          ),
-        }
-      : routingGraph;
-    return findShortestPath(graph, startId, destId);
-  }, [startId, destId]);
+  const route = useMemo(() => computePath(startId, destId), [startId, destId]);
 
   const routeIds = useMemo(() => route?.path ?? [], [route]);
 
@@ -742,8 +1082,8 @@ export default function CampusMap({
 
   useEffect(() => {
     if (!focus || appliedFocus.current === focus.nonce) return;
-    appliedFocus.current = focus.nonce;
     const timer = setTimeout(() => {
+      appliedFocus.current = focus.nonce;
       if (focus.kind === "campus") {
         clearTimers();
         setZoomed(false);
@@ -759,6 +1099,10 @@ export default function CampusMap({
     }, 0);
     return () => clearTimeout(timer);
   }, [focus, phase, after, clearTimers]);
+
+  useEffect(() => {
+    onFloorChange?.(phase === "building" ? floor : null);
+  }, [phase, floor, onFloorChange]);
 
   useEffect(() => {
     onViewChange?.(
@@ -793,22 +1137,269 @@ export default function CampusMap({
   const pinKind = (id: string | undefined) =>
     id && id === startId ? "start" : id && id === destId ? "dest" : null;
 
-  const pinPosCampus = (id: string): Pt | null => {
-    const n = nodeById.get(id);
-    if (!n) return null;
-    const clExit = clExitForNode(id);
-    if (clExit) return clExit;
-    const b = buildingOfNode(id);
-    if (b) {
-      const r = buildingById[b].rect;
-      return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  /** Rotate a floor a quarter turn on portrait screens (long buildings). */
+  const shouldRotate = useCallback(
+    (b: BuildingId, f: number) => {
+      // Admin tools work in the drawing's own coordinates.
+      if (builderMode || roomEditingMode) return false;
+      if (rotatePref !== "auto") return rotatePref === "on";
+      const c = floorContent(b, f);
+      return stageSize.h > stageSize.w * 1.05 && c.w > c.h * 1.15;
+    },
+    [builderMode, roomEditingMode, rotatePref, stageSize.w, stageSize.h],
+  );
+  const displayOf = useCallback(
+    (b: BuildingId, f: number) => indoorDisplay(b, f, shouldRotate(b, f)),
+    [shouldRotate],
+  );
+  const floorKey = useCallback(
+    (b: BuildingId, f: number) => `b:${b}:${f}${shouldRotate(b, f) ? ":r" : ""}`,
+    [shouldRotate],
+  );
+  /** Indoor zoom (px per map unit) as a content width for one floor display. */
+  const indoorWidth = useCallback(
+    (b: BuildingId, f: number, pxPerUnit: number) => {
+      const d = displayOf(b, f);
+      return { px: (d.w / unitsPerMapUnit(b, f)) * pxPerUnit, perScreen: 0 };
+    },
+    [displayOf],
+  );
+
+  // ---- fly-to and route framing -------------------------------------------
+
+  /** Switch to the campus overview or a building floor (animated). */
+  const goToView = useCallback(
+    (building: BuildingId | null, targetFloor: number | null) => {
+      if (!building) {
+        if (phase !== "campus") backToCampus();
+        return;
+      }
+      if (phase === "building" && buildingId === building) {
+        setFloor(targetFloor ?? 1);
+      } else if (phase === "building") {
+        setBuildingId(building);
+        setFloor(targetFloor ?? 1);
+      } else {
+        enterBuilding(building, targetFloor ?? 1);
+      }
+    },
+    [phase, buildingId, backToCampus, enterBuilding],
+  );
+
+  /**
+   * The navigation-focused view of one map: the route on it, else the
+   * place being looked at / destination / start on it, else its rooms at a
+   * readable size.
+   */
+  const navFrame = useCallback(
+    (b: BuildingId | null, f: number | null): MapFrame => {
+      const ids = [highlightId, destId, startId].filter((id): id is string => !!id);
+      if (!b) {
+        if (route && campusRoute.length > 1) {
+          const pts = [...campusRoute];
+          [startId, destId].forEach((id) => {
+            const p = id ? pinPosCampus(id) : null;
+            if (p) pts.push(p);
+          });
+          return { kind: "box", box: boxAround(pts, CAMPUS_VIEWBOX), maxWidth: MAP_WIDTH.campusRouteMax };
+        }
+        for (const id of ids) {
+          const p = pinPosCampus(id);
+          if (p) {
+            return {
+              kind: "point",
+              fx: p.x / CAMPUS_VIEWBOX.w,
+              fy: p.y / CAMPUS_VIEWBOX.h,
+              width: MAP_WIDTH.campusPlace,
+            };
+          }
+        }
+        return { kind: "point", fx: 0.5, fy: 0.47, width: MAP_WIDTH.campusDefault };
+      }
+      const floorNo = f ?? 1;
+      const d = displayOf(b, floorNo);
+      const size = { w: d.w, h: d.h };
+      const onFloor = (id: string) => {
+        const n = nodeById.get(id);
+        return !!n && buildingOfNode(id) === b && (n.floor ?? 1) === floorNo && !isCampusAnchored(id);
+      };
+      const at = (id: string) => {
+        const n = nodeById.get(id)!;
+        return toDisplay(d, nodePoint(b, floorNo, n.x, n.y));
+      };
+      const routePts = (route?.path ?? []).filter(onFloor).map(at);
+      if (routePts.length > 1) {
+        return {
+          kind: "box",
+          box: boxAround(routePts, size),
+          maxWidth: indoorWidth(b, floorNo, INDOOR_PX_PER_UNIT.routeMax),
+        };
+      }
+      const here = ids.find(onFloor);
+      if (here) {
+        const p = at(here);
+        return {
+          kind: "point",
+          fx: p.x / size.w,
+          fy: p.y / size.h,
+          width: indoorWidth(b, floorNo, INDOOR_PX_PER_UNIT.place),
+        };
+      }
+      // The floor filling the screen (no empty margins), never too small to read.
+      return {
+        kind: "cover",
+        fx: 0.5,
+        fy: 0.5,
+        alignTop: d.rotated,
+        minWidth: indoorWidth(b, floorNo, readableScale(b, floorNo)),
+        maxWidth: indoorWidth(b, floorNo, Math.max(readableScale(b, floorNo), INDOOR_PX_PER_UNIT.max)),
+      };
+    },
+    [highlightId, destId, startId, route, campusRoute, displayOf, indoorWidth],
+  );
+
+  // A chatbot answer or search result: fly to the place and highlight it.
+  // "context" (choosing a start): show the area around it on the campus map.
+  const appliedPlace = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusPlace || appliedPlace.current === focusPlace.nonce) return;
+    const context = focusPlace.mode === "context";
+    const v = context ? null : placeView(focusPlace.id);
+    const p = context ? pinPosCampus(focusPlace.id) : null;
+    if (!v && !p) return;
+    // Marked as applied only when it runs: a re-render in between cancels
+    // the timer, and the effect then schedules it again.
+    const timer = setTimeout(() => {
+      appliedPlace.current = focusPlace.nonce;
+      if (v && v.building) {
+        // Inside a building: switch to its floor and zoom to the room.
+        const d = displayOf(v.building, v.floor);
+        const q = toDisplay(d, v.p);
+        setHighlightId(focusPlace.id);
+        goToView(v.building, v.floor);
+        setZoomTarget({
+          key: floorKey(v.building, v.floor),
+          nonce: ++targetNonce.current,
+          frame: {
+            kind: "point",
+            fx: q.x / d.w,
+            fy: q.y / d.h,
+            width: indoorWidth(
+              v.building,
+              v.floor,
+              Math.max(INDOOR_PX_PER_UNIT.place, readableScale(v.building, v.floor) * 1.4),
+            ),
+          },
+        });
+      } else if (v) {
+        setHighlightId(focusPlace.id);
+        goToView(null, null);
+        setZoomTarget({
+          key: "campus",
+          nonce: ++targetNonce.current,
+          frame: { kind: "point", fx: v.fx, fy: v.fy, width: MAP_WIDTH.campusPlace },
+        });
+      } else if (p) {
+        goToView(null, null);
+        setZoomTarget({
+          key: "campus",
+          nonce: ++targetNonce.current,
+          frame: {
+            kind: "point",
+            fx: p.x / CAMPUS_VIEWBOX.w,
+            fy: p.y / CAMPUS_VIEWBOX.h,
+            width: MAP_WIDTH.campusDefault,
+          },
+        });
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [focusPlace, goToView, displayOf, floorKey, indoorWidth]);
+
+  useEffect(() => {
+    if (!focusPlace) {
+      const timer = setTimeout(() => setHighlightId(null), 0);
+      return () => clearTimeout(timer);
     }
-    return { x: n.x, y: n.y };
+  }, [focusPlace]);
+
+  // A new route: frame it - the campus part, or the start floor for routes
+  // that stay inside one building. Short routes are shown close up, long
+  // ones zoom out only as far as needed.
+  const appliedRoute = useRef(routeNonce);
+  useEffect(() => {
+    if (appliedRoute.current === routeNonce || !startId || !destId) return;
+    if (!route) return;
+    const startBuilding = buildingOfNode(startId);
+    const sameBuilding = startBuilding !== null && startBuilding === buildingOfNode(destId);
+    const b = sameBuilding ? startBuilding : null;
+    const f = b ? nodeById.get(startId)?.floor ?? 1 : null;
+    const timer = setTimeout(() => {
+      appliedRoute.current = routeNonce;
+      setHighlightId(null);
+      goToView(b, f);
+      setZoomTarget({
+        key: b && f ? floorKey(b, f) : "campus",
+        nonce: ++targetNonce.current,
+        frame: navFrame(b, f),
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [routeNonce, route, startId, destId, goToView, navFrame, floorKey]);
+
+  // ---- "tap your current location" -----------------------------------------
+
+  /** Map point under a click, in the SVG's own units. */
+  const svgPoint = (event: ReactMouseEvent<SVGSVGElement>): Pt | null => {
+    // Floor plans are drawn inside a cropped / rotated group: read the point
+    // in that group's (the drawing's) own units.
+    const root = event.currentTarget.querySelector<SVGGElement>("[data-plan-root]");
+    const matrix = (root ?? event.currentTarget).getScreenCTM();
+    if (!matrix) return null;
+    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+    return { x: p.x, y: p.y };
+  };
+
+  /** Nearest walkable point to a tap on open ground (campus or current floor). */
+  const nearestWalkable = (p: Pt, indoor: boolean): string | null => {
+    let best: string | null = null;
+    let bestD = Infinity;
+    for (const n of routingGraph.nodes) {
+      const b = buildingOfNode(n.id);
+      let q: Pt;
+      if (indoor) {
+        if (b !== buildingId || n.floor !== floor || isCampusAnchored(n.id)) continue;
+        q = nodePoint(buildingId, floor, n.x, n.y);
+      } else {
+        if (b) continue;
+        q = { x: n.x, y: n.y };
+      }
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bestD) {
+        bestD = d;
+        best = n.id;
+      }
+    }
+    return best;
+  };
+
+  const onGroundClick = (event: ReactMouseEvent<SVGSVGElement>, indoor: boolean) => {
+    if (!picking || builderMode) return;
+    const target = event.target as Element;
+    if (target.closest("[role=button]")) return;
+    const p = svgPoint(event);
+    if (!p) return;
+    const id = nearestWalkable(p, indoor);
+    if (id) onPick?.(id);
   };
 
   // Selecting a place only highlights it; the page then offers
   // "Set as start" / "Set as destination" for it.
   const pick = (id: string) => {
+    if (picking) {
+      onPick?.(id);
+      return;
+    }
     setSelectedId(id);
     // Notify even when the same place is tapped again, so a dismissed
     // action card can be reopened.
@@ -1061,7 +1652,8 @@ export default function CampusMap({
     event: ReactMouseEvent<SVGSVGElement>,
     viewBox: Rect,
   ): BuilderCoordinates | null => {
-    const matrix = event.currentTarget.getScreenCTM();
+    const root = event.currentTarget.querySelector<SVGGElement>("[data-plan-root]");
+    const matrix = (root ?? event.currentTarget).getScreenCTM();
     let displayX: number;
     let displayY: number;
     if (matrix) {
@@ -1145,7 +1737,7 @@ export default function CampusMap({
   );
   const phaseLabel =
     phase === "building" || phase === "out" || phase === "in"
-      ? `${currentBuildingName}, ${currentFloorName}`
+      ? `${currentBuildingName} · ${currentFloorName}`
       : "Campus overview";
   const visibleManagedItems = managedItems.filter((item) =>
     `${item.name} ${item.context} ${item.id}`
@@ -1159,6 +1751,99 @@ export default function CampusMap({
     () => buildSelectGroups(roomNames),
     [roomNames],
   );
+
+  // ---- indoor view values -------------------------------------------------
+  const indoorD = displayOf(buildingId, floor);
+  const unitScale = unitsPerMapUnit(buildingId, floor);
+  const hallW = 150 * unitScale;
+  const hallways = phase === "building" || phase === "out" ? floorHallways(buildingId, floor) : [];
+  const narrow = stageSize.w > 0 && stageSize.w < 520;
+  const floorCategories = [
+    ...new Set(
+      plan.rooms.map((room) =>
+        roomCategory(
+          room.type,
+          displayName(roomNames, room.nodeId ?? syntheticRoomNameKey(buildingId, floor, room.id), room.label),
+        ),
+      ),
+    ),
+  ];
+  const floorHasClaimable = plan.rooms.some((room) => !!room.nodeId && !!nodeById.get(room.nodeId)?.claimable);
+
+  // Which floors of this building the route uses, and where it starts / ends.
+  const routeFloors = new Set<number>();
+  route?.path.forEach((id) => {
+    const n = nodeById.get(id);
+    if (n && buildingOfNode(id) === buildingId && !isCampusAnchored(id)) routeFloors.add(n.floor ?? 1);
+  });
+  const floorOfHere = (id: string | null | undefined) => {
+    const n = id ? nodeById.get(id) : null;
+    return n && buildingOfNode(id!) === buildingId && !isCampusAnchored(id!) ? n.floor ?? 1 : null;
+  };
+  const startFloor = floorOfHere(startId);
+  const destFloor = floorOfHere(destId);
+
+  // Floor changes / exits on this floor of the route, as tappable markers.
+  const floorTags: {
+    key: string;
+    at: Pt;
+    label: string;
+    tone: "up" | "down" | "exit" | "enter";
+    go?: { building: BuildingId | null; floor: number };
+  }[] = [];
+  if (route && phase === "building") {
+    const here = (id: string) => {
+      const n = nodeById.get(id);
+      return !!n && buildingOfNode(id) === buildingId && n.floor === floor && !isCampusAnchored(id);
+    };
+    const path = route.path;
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i];
+      const c = path[i + 1];
+      const na = nodeById.get(a)!;
+      const nc = nodeById.get(c)!;
+      const bc = buildingOfNode(c);
+      if (here(a) && !here(c)) {
+        const at = nodePoint(buildingId, floor, na.x, na.y);
+        if (bc === buildingId && !isCampusAnchored(c)) {
+          const up = (nc.floor ?? 1) > floor;
+          const to = nc.floor ?? 1;
+          floorTags.push({
+            key: `t${i}`,
+            at,
+            label: `${up ? "↑" : "↓"} ${floorShort(roomNames, buildingId, to)}`,
+            tone: up ? "up" : "down",
+            go: { building: buildingId, floor: to },
+          });
+        } else if (bc && bc !== buildingId) {
+          const to = nc.floor ?? 1;
+          floorTags.push({
+            key: `t${i}`,
+            at,
+            label: `→ ${buildingDisplayName(roomNames, bc, buildingById[bc].name)}`,
+            tone: "exit",
+            go: { building: bc, floor: to },
+          });
+        } else {
+          floorTags.push({ key: `t${i}`, at, label: "Exit ↗", tone: "exit", go: { building: null, floor: 1 } });
+        }
+      }
+    }
+    // Where the route comes in from outside.
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const c = path[i];
+      if (!here(a) && here(c) && (buildingOfNode(a) !== buildingId || isCampusAnchored(a))) {
+        const nc = nodeById.get(c)!;
+        floorTags.push({
+          key: `e${i}`,
+          at: nodePoint(buildingId, floor, nc.x, nc.y),
+          label: "Entrance",
+          tone: "enter",
+        });
+      }
+    }
+  }
 
   return (
     <div className={styles.root}>
@@ -1354,21 +2039,55 @@ export default function CampusMap({
             </div>
           </aside>
         )}
-        <div className={styles.stage}>
-          <div className={styles.chip} aria-live="polite">
+        <div className={styles.stage} ref={stageRef}>
+          <div className={styles.srOnly} aria-live="polite">
             {phaseLabel}
           </div>
 
           <ZoomPan
-            enabled={mobileUi}
-            resetKey={`${
-              phase === "campus" ? "c" : "b"
-            }-${buildingId}-${floor}`}
+            resetKey={
+              phase === "campus"
+                ? "campus"
+                : phase === "building"
+                ? floorKey(buildingId, floor)
+                : null
+            }
+            target={zoomTarget}
+            home={phase === "campus" ? navFrame(null, null) : navFrame(buildingId, floor)}
+            aspect={phase === "building" || phase === "out" ? indoorD.w / indoorD.h : 16 / 9}
+            insets={{
+              // Inside a building the back button sits under the tabs.
+              top: (pageInsets?.top ?? 0) + (phase === "building" && !hideBackButton ? 50 : 0),
+              bottom: pageInsets?.bottom ?? 0,
+              // Map controls on the right; floor rail on the left (they float
+              // over the map on narrow phones, so only part is kept clear).
+              right: (pageInsets?.right ?? 0) + (narrow ? 36 : 60),
+              left:
+                (pageInsets?.left ?? 0) +
+                (phase === "building" && building.floors.length > 1 ? (narrow ? 58 : 72) : 0),
+            }}
+            menuItems={[
+              ...(phase === "building"
+                ? [
+                    {
+                      label: "Rotate floor plan to fit",
+                      active: indoorD.rotated,
+                      onSelect: () => setRotatePref(indoorD.rotated ? "off" : "on"),
+                    },
+                    {
+                      label: "Map legend",
+                      active: legendOpen,
+                      onSelect: () => setLegendOpen((o) => !o),
+                    },
+                  ]
+                : []),
+              ...extraMenuItems,
+            ]}
           >
             <div
               className={`${styles.campusLayer} ${
                 phase === "out" ? styles.fast : ""
-              }`}
+              } ${picking ? styles.picking : ""}`}
               style={{
                 transform: zoomed ? zoomTransform(buildingId) : "none",
                 opacity: zoomed ? 0 : 1,
@@ -1380,13 +2099,14 @@ export default function CampusMap({
                 className={styles.svg}
                 role="img"
                 aria-label="Campus map"
-                onClick={(event) =>
+                onClick={(event) => {
+                  onGroundClick(event, false);
                   addBuilderPoint(event, "campus", {
                     x: 0,
                     y: 0,
                     ...CAMPUS_VIEWBOX,
-                  })
-                }
+                  });
+                }}
                 onMouseMove={(event) =>
                   updateBuilderCursor(event, "campus", {
                     x: 0,
@@ -1710,45 +2430,34 @@ export default function CampusMap({
                   })}
 
                 {campusRoute.length > 1 && (
-                  <polyline
-                    points={campusRoute.map((p) => `${p.x},${p.y}`).join(" ")}
-                    className={styles.route}
-                    vectorEffect="non-scaling-stroke"
-                  />
+                  <g pointerEvents="none">
+                    <polyline
+                      points={campusRoute.map((p) => `${p.x},${p.y}`).join(" ")}
+                      className={styles.routeCasing}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    <polyline
+                      points={campusRoute.map((p) => `${p.x},${p.y}`).join(" ")}
+                      className={styles.route}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  </g>
                 )}
 
-                {(["cl-n", "cl-s"] as const).map((id) => {
-                  const point = clExitPoints[id];
-                  return (
-                    <g
-                      key={id}
-                      className={styles.clExitMarker}
-                      transform={`translate(${point.x} ${point.y})`}
-                      pointerEvents="none"
-                    >
-                      <circle r={9} />
-                      <text y={1.8} textAnchor="middle">
-                        {id === "cl-s" ? "1–4" : "5–8"}
-                      </text>
-                      <title>
-                        {id === "cl-s"
-                          ? "Exit to CL Rooms 1–4"
-                          : "Exit to CL Rooms 5–8"}
-                      </title>
-                    </g>
-                  );
-                })}
-
-                {startId &&
+                {highlightId &&
+                  highlightId !== startId &&
+                  highlightId !== destId &&
                   (() => {
-                    const p = pinPosCampus(startId);
+                    const p = pinPosCampus(highlightId);
                     return p ? (
                       <Pin
                         x={p.x}
                         y={p.y}
-                        color="#16a34a"
-                        label="A"
-                        scale={mobileUi ? 14 : 1}
+                        color="#4f46e5"
+                        label="★"
+                        viewBoxWidth={CAMPUS_VIEWBOX.w}
+                        ring
+                        pulse
                       />
                     ) : null;
                   })()}
@@ -1761,8 +2470,25 @@ export default function CampusMap({
                         y={p.y}
                         color="#dc2626"
                         label="B"
-                        scale={mobileUi ? 14 : 1}
+                        viewBoxWidth={CAMPUS_VIEWBOX.w}
+                        ring={highlightId === destId || picking}
                         pulse
+                        title="Destination"
+                      />
+                    ) : null;
+                  })()}
+                {startId &&
+                  (() => {
+                    const p = pinPosCampus(startId);
+                    return p ? (
+                      <Pin
+                        x={p.x}
+                        y={p.y}
+                        color="#16a34a"
+                        label="A"
+                        viewBoxWidth={CAMPUS_VIEWBOX.w}
+                        ring={picking}
+                        title="Starting point"
                       />
                     ) : null;
                   })()}
@@ -1815,290 +2541,348 @@ export default function CampusMap({
               <div
                 className={`${styles.indoorLayer} ${
                   phase === "out" ? styles.indoorExit : styles.indoorEnter
-                }`}
+                } ${picking ? styles.picking : ""}`}
               >
                 <svg
-                  viewBox={
-                    indoorImage
-                      ? `0 0 ${
-                          indoorImage.rotate
-                            ? indoorImage.height
-                            : indoorImage.width
-                        } ${
-                          indoorImage.rotate
-                            ? indoorImage.width
-                            : indoorImage.height
-                        }`
-                      : `${vb.x} ${vb.y} ${vb.w} ${vb.h}`
-                  }
-                  className={styles.svg}
+                  key={`${buildingId}-${floor}-${indoorD.rotated ? "r" : "n"}`}
+                  viewBox={`0 0 ${indoorD.w} ${indoorD.h}`}
+                  className={`${styles.svg} ${styles.floorSvg}`}
                   role="img"
                   aria-label={`${currentBuildingName}, ${currentFloorName} floor plan`}
-                  onClick={(event) =>
-                    addBuilderPoint(event, activeMapKey, activeViewBox)
-                  }
+                  onClick={(event) => {
+                    onGroundClick(event, true);
+                    addBuilderPoint(event, activeMapKey, activeViewBox);
+                  }}
                   onMouseMove={(event) =>
                     updateBuilderCursor(event, activeMapKey, activeViewBox)
                   }
                   onMouseLeave={() => setBuilderCursor(null)}
                 >
-                  {indoorImage && (
-                    <image
-                      href={indoorImage.src}
-                      x="0"
-                      y="0"
-                      width={indoorImage.width}
-                      height={indoorImage.height}
-                      transform={
-                        indoorImage.rotate
-                          ? `rotate(90) translate(0 ${-indoorImage.height})`
-                          : undefined
-                      }
-                      preserveAspectRatio="none"
-                      pointerEvents="none"
+                  {/* Everything below is in the floor drawing's own units;
+                      the group crops (and on portrait screens rotates) it. */}
+                  <g data-plan-root transform={indoorD.transform}>
+                    <rect
+                      x={indoorD.crop.x}
+                      y={indoorD.crop.y}
+                      width={indoorD.crop.w}
+                      height={indoorD.crop.h}
+                      rx={40 * unitScale}
+                      className={styles.floorSlab}
                     />
-                  )}
-                  {plan.open.map((o, i) => {
-                    if (indoorImage) return null;
-                    const r = planRect(o);
-                    return (
-                      <rect
-                        key={i}
-                        x={r.x}
-                        y={r.y}
-                        width={r.w}
-                        height={r.h}
-                        rx={14}
-                        className={styles.openArea}
+                    {indoorImage && (
+                      <image
+                        href={indoorImage.src}
+                        x="0"
+                        y="0"
+                        width={indoorImage.width}
+                        height={indoorImage.height}
+                        preserveAspectRatio="none"
+                        pointerEvents="none"
+                        className={styles.planImage}
                       />
-                    );
-                  })}
+                    )}
+                    {!indoorImage &&
+                      plan.open.map((o, i) => {
+                        const r = planRect(o);
+                        return (
+                          <rect
+                            key={i}
+                            x={r.x}
+                            y={r.y}
+                            width={r.w}
+                            height={r.h}
+                            rx={14}
+                            className={styles.openArea}
+                          />
+                        );
+                      })}
 
-                  {plan.rooms.map((room: PlanRoom) => {
-                    const r = indoorImage
-                      ? buildingId === "old"
-                        ? scaleOldRect(room)
-                        : imageRoomRect(buildingId, floor, room.id)
-                      : planRect(room);
-                    if (!r) return null;
-                    const managedRoomId =
-                      room.nodeId ??
-                      syntheticRoomNameKey(buildingId, floor, room.id);
-                    const displayRoomName = displayName(
-                      roomNames,
-                      managedRoomId,
-                      room.label,
-                    );
-                    const labelLayout = fitMapLabel(displayRoomName, r.w, r.h);
-                    const lines = labelLayout.lines;
-                    const fs = labelLayout.fontSize;
-                    const roomClipId =
-                      `room-label-${buildingId}-${floor}-${room.id}`.replace(
+                    {/* Hallways, drawn from the walkable-path data. */}
+                    <g className={styles.hallways} pointerEvents="none">
+                      {hallways.map(([a, b], i) => (
+                        <line
+                          key={`c${i}`}
+                          x1={a.x}
+                          y1={a.y}
+                          x2={b.x}
+                          y2={b.y}
+                          strokeWidth={hallW + 26 * unitScale}
+                          className={styles.hallEdge}
+                        />
+                      ))}
+                      {hallways.map(([a, b], i) => (
+                        <line
+                          key={`f${i}`}
+                          x1={a.x}
+                          y1={a.y}
+                          x2={b.x}
+                          y2={b.y}
+                          strokeWidth={hallW}
+                          className={styles.hallFill}
+                        />
+                      ))}
+                    </g>
+
+                    {plan.rooms.map((room: PlanRoom) => {
+                      const r = roomRect(buildingId, floor, room);
+                      if (!r) return null;
+                      const managedRoomId =
+                        room.nodeId ?? syntheticRoomNameKey(buildingId, floor, room.id);
+                      const displayRoomName = displayName(roomNames, managedRoomId, room.label);
+                      const category = roomCategory(room.type, displayRoomName);
+                      // Labels stay upright: on a rotated floor they are
+                      // turned back and fitted to the rotated room.
+                      const labelLayout = fitMapLabel(
+                        displayRoomName,
+                        indoorD.rotated ? r.h : r.w,
+                        indoorD.rotated ? r.w : r.h,
+                        // Same physical cap on every floor (~200 map units).
+                        200 * unitScale,
+                        2.6,
+                      );
+                      const lines = labelLayout.lines;
+                      const fs = labelLayout.fontSize;
+                      const roomClipId = `room-label-${buildingId}-${floor}-${room.id}`.replace(
                         /[^a-zA-Z0-9_-]/g,
                         "-",
                       );
-                    const selectable =
-                      roomEditingMode ||
-                      (!!room.nodeId &&
-                        (isSelectableNode(room.nodeId) ||
-                          !!room.openBuildingId));
-                    const kind = pinKind(room.nodeId);
-                    const cls = [
-                      indoorImage ? styles.imageHitbox : styles.room,
-                      room.placeholder ? styles.placeholder : "",
-                      selectable ? styles.hoverable : "",
-                      room.nodeId && nodeById.get(room.nodeId)?.claimable
-                        ? claims[room.nodeId]
-                          ? styles.roomOccupied
-                          : styles.roomAvailable
-                        : "",
-                      (selectedId && selectedId === room.nodeId) ||
-                      (roomEditingMode && selectedManagedId === managedRoomId)
-                        ? styles.isSelected
-                        : "",
-                      kind === "start" ? styles.isStart : "",
-                      kind === "dest" ? styles.isDest : "",
-                    ].join(" ");
-                    const cx = r.x + r.w / 2;
-                    const cy = r.y + r.h / 2;
-                    return (
-                      <g
-                        key={room.id}
-                        onClick={() => {
-                          if (builderMode) return;
-                          if (isAdmin && roomEditingMode) {
-                            selectManagedLocation(
-                              managedRoomId,
-                              displayRoomName,
-                              {
-                                buildingId,
-                                floor,
-                                nodeId: room.nodeId,
-                                kind: "room",
-                              },
-                            );
-                            return;
-                          }
-                          if (room.openBuildingId) {
-                            enterBuilding(
-                              room.openBuildingId,
-                              room.openFloor ?? 1,
-                            );
-                          } else if (room.nodeId) {
-                            selectNode(room.nodeId);
-                          }
-                        }}
-                        role={selectable ? "button" : undefined}
-                        tabIndex={selectable ? 0 : undefined}
-                        aria-label={
-                          selectable
-                            ? `${displayRoomName.replace("\n", " ")}, select`
-                            : undefined
+                      const selectable =
+                        roomEditingMode ||
+                        (!!room.nodeId &&
+                          (isSelectableNode(room.nodeId) || !!room.openBuildingId));
+                      const kind = pinKind(room.nodeId);
+                      const claimable = !!room.nodeId && !!nodeById.get(room.nodeId)?.claimable;
+                      const occupied = claimable && !!claims[room.nodeId!];
+                      const isSel =
+                        (selectedId && selectedId === room.nodeId) ||
+                        (highlightId && highlightId === room.nodeId) ||
+                        (roomEditingMode && selectedManagedId === managedRoomId);
+                      const cls = [
+                        styles.indoorRoom,
+                        styles[`cat_${category}`],
+                        room.placeholder ? styles.placeholder : "",
+                        selectable ? styles.hoverable : "",
+                        isSel ? styles.roomSelected : "",
+                        kind === "start" ? styles.roomStart : "",
+                        kind === "dest" ? styles.roomDest : "",
+                      ].join(" ");
+                      const cx = r.x + r.w / 2;
+                      const cy = r.y + r.h / 2;
+                      const activate = () => {
+                        if (builderMode) return;
+                        if (isAdmin && roomEditingMode) {
+                          selectManagedLocation(managedRoomId, displayRoomName, {
+                            buildingId,
+                            floor,
+                            nodeId: room.nodeId,
+                            kind: "room",
+                          });
+                          return;
                         }
-                        onKeyDown={(e) => {
-                          if (
-                            selectable &&
-                            (e.key === "Enter" || e.key === " ")
-                          ) {
-                            e.preventDefault();
-                            if (isAdmin && roomEditingMode) {
-                              selectManagedLocation(
-                                managedRoomId,
-                                displayRoomName,
-                                {
-                                  buildingId,
-                                  floor,
-                                  nodeId: room.nodeId,
-                                  kind: "room",
-                                },
-                              );
-                              return;
-                            }
-                            if (room.openBuildingId) {
-                              enterBuilding(
-                                room.openBuildingId,
-                                room.openFloor ?? 1,
-                              );
-                            } else if (room.nodeId) {
-                              selectNode(room.nodeId);
-                            }
-                          }
-                        }}
-                      >
-                        <rect
-                          x={r.x}
-                          y={r.y}
-                          width={r.w}
-                          height={r.h}
-                          rx={6}
-                          className={cls}
-                        />
-                        <defs>
-                          <clipPath id={roomClipId}>
-                            <rect
-                              x={r.x + 4}
-                              y={r.y + 4}
-                              width={Math.max(1, r.w - 8)}
-                              height={Math.max(1, r.h - 8)}
-                            />
-                          </clipPath>
-                        </defs>
+                        if (room.openBuildingId) {
+                          enterBuilding(room.openBuildingId, room.openFloor ?? 1);
+                        } else if (room.nodeId) {
+                          selectNode(room.nodeId);
+                        }
+                      };
+                      const badgeR = Math.min(r.w, r.h) * 0.09;
+                      return (
                         <g
-                          clipPath={`url(#${roomClipId})`}
-                          pointerEvents="none"
+                          key={room.id}
+                          className={styles.roomGroup}
+                          onClick={activate}
+                          role={selectable ? "button" : undefined}
+                          tabIndex={selectable ? 0 : undefined}
+                          aria-label={
+                            selectable
+                              ? `${displayRoomName.replace("\n", " ")}, ${CATEGORY_LABEL[category]}${
+                                  occupied ? ", occupied" : ""
+                                }`
+                              : undefined
+                          }
+                          onKeyDown={(e) => {
+                            if (selectable && (e.key === "Enter" || e.key === " ")) {
+                              e.preventDefault();
+                              activate();
+                            }
+                          }}
                         >
-                          {lines.map((line, i) => (
+                          <rect
+                            x={r.x}
+                            y={r.y}
+                            width={r.w}
+                            height={r.h}
+                            rx={Math.min(72 * unitScale, Math.min(r.w, r.h) * 0.12)}
+                            className={cls}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          {category === "stairs" && (
+                            <rect
+                              x={r.x}
+                              y={r.y}
+                              width={r.w}
+                              height={r.h}
+                              fill="url(#atlas-stairs)"
+                              pointerEvents="none"
+                            />
+                          )}
+                          <defs>
+                            <clipPath id={roomClipId}>
+                              <rect
+                                x={r.x + 8 * unitScale}
+                                y={r.y + 8 * unitScale}
+                                width={Math.max(1, r.w - 16 * unitScale)}
+                                height={Math.max(1, r.h - 16 * unitScale)}
+                              />
+                            </clipPath>
+                          </defs>
+                          <g clipPath={`url(#${roomClipId})`} pointerEvents="none">
+                            <g transform={indoorD.rotated ? `rotate(-90 ${cx} ${cy})` : undefined}>
+                              {lines.map((line, i) => (
+                                <text
+                                  key={i}
+                                  x={cx}
+                                  y={cy + (i - (lines.length - 1) / 2) * fs * 1.18}
+                                  fontSize={fs}
+                                  textAnchor="middle"
+                                  dominantBaseline="central"
+                                  className={
+                                    category === "storage" || room.placeholder
+                                      ? styles.roomTextDark
+                                      : styles.roomText
+                                  }
+                                >
+                                  {line}
+                                </text>
+                              ))}
+                            </g>
+                          </g>
+                          {occupied && (
+                            <circle
+                              cx={r.x + r.w - badgeR * 1.6}
+                              cy={r.y + badgeR * 1.6}
+                              r={badgeR}
+                              className={styles.occupiedDot}
+                              pointerEvents="none"
+                            />
+                          )}
+                          {displayRoomName && (
+                            <title>
+                              {displayRoomName} · {CATEGORY_LABEL[category]}
+                              {claimable ? ` · ${occupied ? "Occupied" : "Available"}` : ""}
+                            </title>
+                          )}
+                        </g>
+                      );
+                    })}
+
+                    {indoorRoute.map((line, i) =>
+                      line.length > 1 ? (
+                        <g key={i} pointerEvents="none">
+                          <polyline
+                            points={line.map((p) => `${p.x},${p.y}`).join(" ")}
+                            className={styles.routeCasing}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          <polyline
+                            points={line.map((p) => `${p.x},${p.y}`).join(" ")}
+                            className={styles.route}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </g>
+                      ) : null,
+                    )}
+
+                    {builderMode &&
+                      builderPoints
+                        .filter((point) => point.mapKey === activeMapKey)
+                        .map((point) => (
+                          <g key={`builder-${point.id}`} pointerEvents="none">
+                            <circle
+                              cx={point.displayX}
+                              cy={point.displayY}
+                              r={10}
+                              fill="#f97316"
+                              stroke="#ffffff"
+                              strokeWidth={3}
+                            />
                             <text
-                              key={i}
-                              x={cx}
-                              y={cy + (i - (lines.length - 1) / 2) * fs * 1.18}
-                              fontSize={fs}
+                              x={point.displayX}
+                              y={point.displayY}
                               textAnchor="middle"
                               dominantBaseline="central"
-                              className={
-                                indoorImage
-                                  ? styles.roomNameOverlay
-                                  : room.placeholder
-                                  ? styles.labelMuted
-                                  : styles.label
-                              }
+                              className={styles.builderMarkerLabel}
                             >
-                              {line}
+                              {point.id}
                             </text>
-                          ))}
-                        </g>
-                        {displayRoomName && (
-                          <title>
-                            {displayRoomName}
-                            {room.nodeId && nodeById.get(room.nodeId)?.claimable
-                              ? ` - ${
-                                  claims[room.nodeId] ? "Occupied" : "Available"
-                                }`
-                              : ""}
-                          </title>
-                        )}
-                      </g>
+                          </g>
+                        ))}
+                  </g>
+
+                  <defs>
+                    <pattern
+                      id="atlas-stairs"
+                      patternUnits="userSpaceOnUse"
+                      width={40 * unitScale}
+                      height={40 * unitScale}
+                    >
+                      <rect width={40 * unitScale} height={14 * unitScale} fill="rgba(255,255,255,0.22)" />
+                    </pattern>
+                  </defs>
+
+                  {/* Floor changes and exits along the route (tap to follow). */}
+                  {floorTags.map((t) => {
+                    const q = toDisplay(indoorD, t.at);
+                    return (
+                      <Tag
+                        key={t.key}
+                        x={q.x}
+                        y={q.y}
+                        label={t.label}
+                        tone={t.tone}
+                        viewBoxWidth={indoorD.w}
+                        onClick={
+                          t.go
+                            ? () => {
+                                const g = t.go!;
+                                if (!g.building) backToCampus();
+                                else if (g.building === buildingId) setFloor(g.floor);
+                                else {
+                                  setBuildingId(g.building);
+                                  setFloor(g.floor);
+                                }
+                              }
+                            : undefined
+                        }
+                      />
                     );
                   })}
 
-                  {indoorRoute.map((line, i) =>
-                    line.length > 1 ? (
-                      <polyline
-                        key={i}
-                        points={line.map((p) => `${p.x},${p.y}`).join(" ")}
-                        className={styles.route}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    ) : null,
-                  )}
-
-                  {builderMode &&
-                    builderPoints
-                      .filter((point) => point.mapKey === activeMapKey)
-                      .map((point) => (
-                        <g key={`builder-${point.id}`} pointerEvents="none">
-                          <circle
-                            cx={point.displayX}
-                            cy={point.displayY}
-                            r={10}
-                            fill="#f97316"
-                            stroke="#ffffff"
-                            strokeWidth={3}
-                          />
-                          <text
-                            x={point.displayX}
-                            y={point.displayY}
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                            className={styles.builderMarkerLabel}
-                          >
-                            {point.id}
-                          </text>
-                        </g>
-                      ))}
-
                   {[
-                    { id: startId, color: "#16a34a", label: "A", pulse: false },
-                    { id: destId, color: "#dc2626", label: "B", pulse: true },
+                    {
+                      id: highlightId !== startId && highlightId !== destId ? highlightId : null,
+                      color: "#4f46e5",
+                      label: "★",
+                      pulse: true,
+                      ring: true,
+                    },
+                    { id: destId, color: "#dc2626", label: "B", pulse: true, ring: picking },
+                    { id: startId, color: "#16a34a", label: "A", pulse: false, ring: picking },
                   ].map((pin) => {
                     if (!pin.id) return null;
                     const n = nodeById.get(pin.id);
-                    if (
-                      !n ||
-                      buildingOfNode(pin.id) !== buildingId ||
-                      n.floor !== floor
-                    )
-                      return null;
-                    const p = nodePoint(buildingId, floor, n.x, n.y);
+                    if (!n || buildingOfNode(pin.id) !== buildingId || n.floor !== floor) return null;
+                    const q = toDisplay(indoorD, nodePoint(buildingId, floor, n.x, n.y));
                     return (
                       <Pin
                         key={pin.label}
-                        x={p.x}
-                        y={p.y}
+                        x={q.x}
+                        y={q.y}
                         color={pin.color}
                         label={pin.label}
-                        scale={4.2}
+                        viewBoxWidth={indoorD.w}
                         pulse={pin.pulse}
+                        ring={pin.ring}
                       />
                     );
                   })}
@@ -2111,6 +2895,7 @@ export default function CampusMap({
 
           {phase === "building" && (
             <>
+              {!hideBackButton && (
               <button
                 type="button"
                 className={styles.backBtn}
@@ -2123,11 +2908,11 @@ export default function CampusMap({
                 <span className={styles.backLong}>Back to Campus Overview</span>
                 <span className={styles.backShort}>Campus</span>
               </button>
+              )}
               {(buildingId === "cl-n" || buildingId === "cl-s") && (
                 <button
                   type="button"
-                  className={styles.backBtn}
-                  style={{ top: 56 }}
+                  className={`${styles.backBtn} ${styles.backBtnSecond}`}
                   onClick={() => {
                     if (roomEditingMode && !exitRoomEditingMode()) return;
                     setBuildingId("old");
@@ -2137,64 +2922,86 @@ export default function CampusMap({
                   <span aria-hidden="true">&larr;</span> Old Building, 2.1F
                 </button>
               )}
-              <div
-                className={styles.floorSelector}
-                role="group"
-                aria-label="Floor selector"
-              >
-                {[...building.floors]
-                  .sort((a, b) => b.floor - a.floor)
-                  .map((f) => (
-                    <button
-                      key={f.floor}
-                      type="button"
-                      className={`${styles.floorBtn} ${
-                        buildingId === "old" ? styles.floorBtnWide : ""
-                      } ${f.floor === floor ? styles.floorActive : ""}`}
-                      aria-pressed={f.floor === floor}
-                      aria-label={floorDisplayName(
-                        roomNames,
-                        buildingId,
-                        f.floor,
-                        f.name,
-                      )}
-                      title={floorDisplayName(
-                        roomNames,
-                        buildingId,
-                        f.floor,
-                        f.name,
-                      )}
-                      onClick={() => {
-                        if (
-                          roomEditingMode &&
-                          editingRoomName !== editingRoomOriginalName &&
-                          editingRoomId &&
-                          !window.confirm(
-                            "You have unsaved room name changes. Change floor?",
-                          )
-                        ) {
-                          return;
-                        }
-                        setFloor(f.floor);
-                      }}
-                    >
-                      {roomNames[floorNameKey(buildingId, f.floor)] ??
-                        (buildingId === "old"
-                          ? f.floor === 1
-                            ? "1F"
-                            : f.floor === 2
-                            ? "2.1F"
-                            : f.floor === 3
-                            ? "2.2F"
-                            : `${f.floor}F`
-                          : `${f.floor}F`)}
-                    </button>
-                  ))}
-              </div>
+              {building.floors.length > 1 && (
+                <div
+                  className={`${styles.floorRail} ${hideBackButton ? styles.floorRailHigh : ""}`}
+                  role="group"
+                  aria-label={`${currentBuildingName} floors`}
+                >
+                  {[...building.floors]
+                    .sort((a, b) => b.floor - a.floor)
+                    .map((f) => {
+                      const label = floorDisplayName(roomNames, buildingId, f.floor, f.name);
+                      const marks = [
+                        routeFloors.has(f.floor) ? "route" : "",
+                        startFloor === f.floor ? "start" : "",
+                        destFloor === f.floor ? "dest" : "",
+                      ].filter(Boolean);
+                      return (
+                        <button
+                          key={f.floor}
+                          type="button"
+                          className={`${styles.floorBtn} ${
+                            f.floor === floor ? styles.floorActive : ""
+                          } ${routeFloors.has(f.floor) ? styles.floorOnRoute : ""}`}
+                          aria-pressed={f.floor === floor}
+                          aria-label={`${label}${marks.includes("dest") ? ", destination" : ""}${
+                            marks.includes("start") ? ", start" : ""
+                          }${marks.includes("route") ? ", on your route" : ""}`}
+                          title={label}
+                          onClick={() => {
+                            if (
+                              roomEditingMode &&
+                              editingRoomName !== editingRoomOriginalName &&
+                              editingRoomId &&
+                              !window.confirm("You have unsaved room name changes. Change floor?")
+                            ) {
+                              return;
+                            }
+                            setFloor(f.floor);
+                          }}
+                        >
+                          {floorShort(roomNames, buildingId, f.floor)}
+                          {(marks.includes("dest") || marks.includes("start")) && (
+                            <span
+                              className={`${styles.floorMark} ${
+                                marks.includes("dest") ? styles.floorMarkDest : styles.floorMarkStart
+                              }`}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
+              {legendOpen && (
+                <div className={styles.legend} role="dialog" aria-label="Map legend">
+                  <strong>Legend</strong>
+                  <ul>
+                    {floorCategories.map((c) => (
+                      <li key={c}>
+                        <span className={`${styles.swatch} ${styles[`sw_${c}`]}`} aria-hidden="true" />
+                        {CATEGORY_LABEL[c]}
+                      </li>
+                    ))}
+                    <li>
+                      <span className={`${styles.swatch} ${styles.sw_hall}`} aria-hidden="true" />
+                      Hallway
+                    </li>
+                    {floorHasClaimable && (
+                      <li>
+                        <span className={styles.swatchDot} aria-hidden="true" />
+                        Occupied (room claim)
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
             </>
           )}
 
-          {hasPins && phase !== "in" && phase !== "out" && (
+          {hasPins && !hideSidebar && phase !== "in" && phase !== "out" && (
             <button
               type="button"
               className={styles.clearBtn}

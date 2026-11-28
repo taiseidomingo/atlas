@@ -32,6 +32,12 @@ export interface ProfessorAnswer {
   reply: string;
   actions: ChatAction[];
   source: "claim" | "schedule" | "department" | "none";
+  /** Professor the answer is about (full name from the records). */
+  professor?: string;
+  /** Map node of the location given in the answer, when it has one. */
+  placeId?: string | null;
+  /** Full names to choose from when the question matched several professors. */
+  candidates?: string[];
 }
 
 interface Professor {
@@ -109,6 +115,10 @@ function block(s: ScheduleEntry): string {
   return `${s.location} from ${formatTime(s.start)} to ${formatTime(s.end)}`;
 }
 
+function mapNode(nodeId: string | null | undefined): string | null {
+  return nodeId && campusGraph.nodes.some((n) => n.id === nodeId) ? nodeId : null;
+}
+
 function routeAction(nodeId: string | null | undefined, label: string): ChatAction[] {
   return nodeId && campusGraph.nodes.some((n) => n.id === nodeId)
     ? [{ label, destinationId: nodeId }]
@@ -127,6 +137,8 @@ export function locateProfessor(p: Professor, now = campusNow()): ProfessorAnswe
         `✅ Confirmed (active room claim): ${claim.professor} is in ${room}` +
         `${where ? ` (${where})` : ""}, claimed at ${timeOf(claim.claimedAt)}.`,
       actions: routeAction(claim.nodeId, `Route to ${room}`),
+      professor: p.name,
+      placeId: mapNode(claim.nodeId),
     };
   }
 
@@ -150,7 +162,13 @@ export function locateProfessor(p: Professor, now = campusNow()): ProfessorAnswe
           `This is the scheduled location, not a confirmed one — you may check there.`,
       );
       actions.push(...routeAction(current.nodeId, `Route to ${current.location}`));
-      return { source: "schedule", reply: lines.join("\n\n"), actions };
+      return {
+        source: "schedule",
+        reply: lines.join("\n\n"),
+        actions,
+        professor: p.name,
+        placeId: mapNode(current.nodeId),
+      };
     }
   } else if (schedules.length > 0) {
     const later = schedules
@@ -181,7 +199,14 @@ export function locateProfessor(p: Professor, now = campusNow()): ProfessorAnswe
     lines.push(`I don't have a department or schedule on file for ${p.name}, so I can't suggest a location.`);
   }
 
-  return { source: department ? "department" : current ? "schedule" : "none", reply: lines.join("\n\n"), actions };
+  const area = department ? getDepartmentArea(department) : null;
+  return {
+    source: department ? "department" : current ? "schedule" : "none",
+    reply: lines.join("\n\n"),
+    actions,
+    professor: p.name,
+    placeId: mapNode(area?.nodeId),
+  };
 }
 
 /** Professor questions answered from records; null when the message isn't about a professor. */
@@ -196,6 +221,7 @@ export function answerProfessorQuestion(message: string): ProfessorAnswer | null
         .map((p) => p.name)
         .join(", ")}. Which one do you mean? Please include their full name.`,
       actions: [],
+      candidates: matches.slice(0, 6).map((p) => p.name),
     };
   }
   const asked = message.match(TITLE_NAME);

@@ -3,6 +3,7 @@ import Link from "next/link";
 import "./global.css";
 import ChatWidget from "./components/ChatWidget";
 import NavLinks from "./components/NavLinks";
+import Icon from "./components/Icon";
 
 export const metadata: Metadata = {
   title: "ATLAS | Smart Campus Navigation",
@@ -31,16 +32,25 @@ export default function RootLayout({
       <body>
         <header className="header">
           <div className="headerInner">
-            <Link href="/" className="logo">
-              ATLAS
+            <Link href="/" className="logo" aria-label="ATLAS home">
+              <span className="logoMark" aria-hidden="true">
+                <Icon name="pin" size={20} strokeWidth={2.2} />
+              </span>
+              <span className="logoText">
+                <strong>ATLAS</strong>
+                <span>CvSU Imus Campus Guide</span>
+              </span>
             </Link>
             <NavLinks />
+            <Link href="/teacher" className="headerCta" aria-label="Teacher Portal">
+              <Icon name="user" size={17} />
+              <span className="headerCtaText">Teacher Portal</span>
+            </Link>
           </div>
         </header>
         <main>{children}</main>
         <footer className="footer">
           <span>ATLAS · CvSU Imus Smart Campus Navigation</span>
-          <Link href="/teacher">Teacher Portal</Link>
         </footer>
         <ChatWidget />
       </body>

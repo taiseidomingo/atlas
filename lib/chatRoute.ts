@@ -1,66 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listReservations, Reservation } from "../lib/reservation";
-import { campusGraph } from "./graph";
-import { getRoomName } from "./roomAdmin";
+import { getBuildingName, getFloorName, getRoomName } from "./roomAdmin";
 import { relevantKnowledge, type KnowledgeHit } from "./knowledgeBase";
 import { answerProfessorQuestion } from "./professorLocator";
 import { withSharedState } from "./persist";
-
-export interface ChatNavigationRequest {
-  startId?: string;
-  destinationId: string;
-}
-
-const navigableNodes = campusGraph.nodes.filter(
-  (node) => node.kind === "entrance" || node.kind === "gate",
-);
-
-function compact(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function navigationRequest(
-  message: string,
-  forcedDestinationId?: string,
-): ChatNavigationRequest | null {
-  const text = compact(message);
-  const matches = navigableNodes
-    .flatMap((node) =>
-      [getRoomName(node.id, node.name), getRoomName(node.id, node.name).replace(/\s*\([^)]*\)$/, "")].map((alias) => ({
-        id: node.id,
-        alias: compact(alias),
-      })),
-    )
-    .filter((candidate) => candidate.alias.length > 2)
-    .sort((a, b) => b.alias.length - a.alias.length)
-    .map((candidate) => ({
-      ...candidate,
-      index: text.indexOf(candidate.alias),
-    }))
-    .filter((candidate) => candidate.index >= 0)
-    .filter((candidate, index, all) => all.findIndex((other) => other.id === candidate.id) === index)
-    .sort((a, b) => a.index - b.index);
-
-  if (forcedDestinationId && matches.length > 0) {
-    return {
-      startId: matches[matches.length - 1].id,
-      destinationId: forcedDestinationId,
-    };
-  }
-  if (matches.length === 0) return null;
-  const asksForDirections =
-    /\b(how|get|go|take|navigate|direction|route|where)\b/i.test(message);
-  if (!asksForDirections && matches.length < 2) return null;
-
-  if (matches.length >= 2 && /\bfrom\b/i.test(message)) {
-    return {
-      startId: matches[0].id,
-      destinationId: matches[matches.length - 1].id,
-    };
-  }
-
-  return { destinationId: matches[matches.length - 1].id };
-}
+import { buildPlaceIndex } from "./placeSearch";
+import { handleChat, sanitizeContext } from "./chatEngine";
+import type { NameLookup } from "./routeGuide";
+import type { ChatEvent, ChatRequest, ChatResponse } from "./chatTypes";
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -68,49 +15,70 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 const UNAVAILABLE =
   "I don't have that information in the campus knowledge base yet. Please check with the relevant campus office.";
 
+/** Current display names (admin-managed) for places, buildings and floors. */
+const serverNames: NameLookup = {
+  place: (id, fallback) => getRoomName(id, fallback),
+  building: (id, fallback) => getBuildingName(id, fallback),
+  floor: (id, floor, fallback) => getFloorName(id, floor, fallback),
+};
+
+function parseEvent(raw: unknown): ChatEvent | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const e = raw as Record<string, unknown>;
+  if (e.type === "start-selected" && typeof e.startId === "string") {
+    return { type: "start-selected", startId: e.startId };
+  }
+  if ((e.type === "choose" || e.type === "directions") && typeof e.placeId === "string") {
+    return { type: e.type, placeId: e.placeId };
+  }
+  return undefined;
+}
+
 async function handlePOST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
-  const { message, destinationId } = body;
+  const message: unknown = body.message;
+  const event = parseEvent(body.event);
 
-  if (!message || typeof message !== "string" || message.length > 1000) {
+  if (!event && (!message || typeof message !== "string" || message.length > 1000)) {
     return NextResponse.json({ error: "Message is required" }, { status: 400 });
   }
 
-  const forcedDestination =
-    typeof destinationId === "string" &&
-    navigableNodes.some((node) => node.id === destinationId)
-      ? destinationId
-      : undefined;
-
-  // 1. Professor whereabouts: answered from records only (claims, schedules,
-  //    department areas), never by the language model.
-  if (!forcedDestination) {
-    const professor = answerProfessorQuestion(message);
-    if (professor) {
-      return NextResponse.json({
-        reply: professor.reply,
-        actions: professor.actions,
-        source: professor.source,
-        navigation: null,
-      });
-    }
+  const context = sanitizeContext(body.context);
+  // Older clients sent the destination they were waiting to route to.
+  if (typeof body.destinationId === "string" && !context.destinationId) {
+    context.destinationId = sanitizeContext({ destinationId: body.destinationId }).destinationId;
+    if (context.destinationId) context.awaiting = "start";
   }
 
-  const navigation = navigationRequest(message, forcedDestination);
+  const chatRequest: ChatRequest = {
+    message: typeof message === "string" ? message : undefined,
+    event,
+    context,
+  };
+
+  // 1. Finding and reaching places, professors included: answered from the
+  //    map and faculty records only, never by the language model.
+  const navigation = handleChat(chatRequest, {
+    index: buildPlaceIndex(serverNames),
+    names: serverNames,
+    professor: answerProfessorQuestion,
+  });
+  if (navigation) return NextResponse.json(navigation satisfies ChatResponse);
+  if (typeof message !== "string") {
+    return NextResponse.json({ reply: "Sorry, I couldn't do that.", context } satisfies ChatResponse);
+  }
+
   // 2. Campus questions: grounded in the admin-uploaded knowledge base.
   const hits = relevantKnowledge(message);
   const sources = [...new Set(hits.map((h) => h.title))];
+  const kbContext = { ...context, awaiting: null, options: [], optionPurpose: null };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({
-      reply: offlineReply(hits, navigation),
-      navigation,
-      sources,
-    });
+    return NextResponse.json({ reply: offlineReply(hits), context: kbContext, sources } satisfies ChatResponse);
   }
 
-  const prompt = buildPrompt(message, listReservations(), hits, !!navigation);
+  const prompt = buildPrompt(message, listReservations(), hits);
 
   let response: Response;
   try {
@@ -128,38 +96,30 @@ async function handlePOST(request: NextRequest) {
     });
   } catch {
     // Network trouble: still answer from the knowledge base.
-    return NextResponse.json({ reply: offlineReply(hits, navigation), navigation, sources });
+    return NextResponse.json({ reply: offlineReply(hits), context: kbContext, sources } satisfies ChatResponse);
   }
 
   if (!response.ok) {
-    return NextResponse.json({ reply: offlineReply(hits, navigation), navigation, sources });
+    return NextResponse.json({ reply: offlineReply(hits), context: kbContext, sources } satisfies ChatResponse);
   }
 
   const data = await response.json();
-  const reply =
-    data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || offlineReply(hits, navigation);
+  const reply = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || offlineReply(hits);
 
-  return NextResponse.json({ reply, navigation, sources });
+  return NextResponse.json({ reply, context: kbContext, sources } satisfies ChatResponse);
 }
 
 /** Answer without the language model: quote the best knowledge-base passage. */
-function offlineReply(hits: KnowledgeHit[], navigation: ChatNavigationRequest | null): string {
-  if (navigation) {
-    const node = navigableNodes.find((n) => n.id === navigation.destinationId);
-    return `Opening directions to ${node ? getRoomName(node.id, node.name) : "that place"} on the campus map.`;
+function offlineReply(hits: KnowledgeHit[]): string {
+  if (hits.length === 0) {
+    return `${UNAVAILABLE}\n\nFor places, try asking "Where is Room 204?" or "How do I get to the Library?".`;
   }
-  if (hits.length === 0) return UNAVAILABLE;
   const best = hits[0];
   const text = best.text.length > 600 ? `${best.text.slice(0, 600).trimEnd()}…` : best.text;
   return `From "${best.title}":\n${text}`;
 }
 
-function buildPrompt(
-  userMessage: string,
-  reservations: Reservation[],
-  hits: KnowledgeHit[],
-  isDirections: boolean,
-): string {
+function buildPrompt(userMessage: string, reservations: Reservation[], hits: KnowledgeHit[]): string {
   const roomList =
     reservations.length > 0
       ? reservations
@@ -184,11 +144,8 @@ Rules:
 - If the excerpts do not contain the answer, reply exactly: "${UNAVAILABLE}"
 - Never invent names, dates, fees, rooms, phone numbers or rules.
 - When you use an excerpt, mention its source title, e.g. (Source: Enrollment FAQ).
-- For a professor's whereabouts, use only the active room claims above and never say a professor is present anywhere else.${
-    isDirections
-      ? "\n- The user asked for directions: the campus map is opening the route for them, so just confirm briefly."
-      : ""
-  }
+- For a professor's whereabouts, use only the active room claims above and never say a professor is present anywhere else.
+- Never give directions or say where a room is; the map assistant handles that. If asked, suggest asking "Where is <place>?".
 - Greetings and small talk can be answered normally in one sentence.
 
 User: ${userMessage}

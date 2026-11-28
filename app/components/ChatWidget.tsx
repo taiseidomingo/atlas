@@ -1,188 +1,71 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import AssistantChat from "./AssistantChat";
+import Icon from "./Icon";
+import { chat, useChat } from "@/lib/chatStore";
 import styles from "./ChatWidget.module.css";
 
-interface ChatAction {
-  label: string;
-  destinationId: string;
-}
-
-interface Msg {
-  from: "me" | "bot";
-  text: string;
-  actions?: ChatAction[];
-  sources?: string[];
-}
-
-interface NavigationRequest {
-  startId?: string;
-  destinationId: string;
-}
-
+/**
+ * Floating assistant for every page except the map page (which has the
+ * assistant built into its panel). The conversation is shared, so when an
+ * answer needs the map the app switches to the map page and carries on there.
+ */
 export default function ChatWidget() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      from: "bot",
-      text: "Hi! I'm ATLAS. Ask me where a professor is, how to get around campus, or any campus question.",
-    },
-  ]);
-  const [pendingDestination, setPendingDestination] = useState<string | null>(
-    null,
-  );
-  const logRef = useRef<HTMLDivElement>(null);
+  const { mapRequest } = useChat();
+  const onMapPage = pathname === "/navigation";
+  const seenRequest = useRef(mapRequest);
 
   useEffect(() => {
-    const openChat = () => setOpen(true);
+    const openChat = (e: Event) => {
+      setOpen(true);
+      const question = (e as CustomEvent<{ question?: string }>).detail?.question;
+      if (question) chat.send(question);
+    };
     window.addEventListener("atlas:open-chat", openChat);
     return () => window.removeEventListener("atlas:open-chat", openChat);
   }, []);
 
+  // An answer that moves the map: go to the map page (the panel takes over).
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [messages, open]);
-
-  const openNavigation = (navigation: NavigationRequest) => {
-    const params = new URLSearchParams({ to: navigation.destinationId });
-    if (navigation.startId) params.set("from", navigation.startId);
-    router.push(`/navigation?${params.toString()}`);
-  };
-
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || busy) return;
-    setInput("");
-    setMessages((m) => [...m, { from: "me", text }]);
-    setBusy(true);
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          destinationId: pendingDestination ?? undefined,
-        }),
-      });
-      const data = await res.json();
-      setMessages((m) => [
-        ...m,
-        {
-          from: "bot",
-          text: data.reply ?? data.error ?? "No response.",
-          actions: Array.isArray(data.actions) ? data.actions : undefined,
-          sources: Array.isArray(data.sources) && data.sources.length ? data.sources : undefined,
-        },
-      ]);
-      const navigation = data.navigation as NavigationRequest | null | undefined;
-      if (navigation?.startId) {
-        setPendingDestination(null);
-        openNavigation(navigation);
-      } else if (navigation?.destinationId) {
-        setPendingDestination(navigation.destinationId);
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            () => openNavigation(navigation),
-            () =>
-              setMessages((m) => [
-                ...m,
-                {
-                  from: "bot",
-                  text: "Where are you right now? Tell me your room, building, or gate.",
-                },
-              ]),
-            { maximumAge: 60_000, timeout: 3_000 },
-          );
-        } else {
-          setMessages((m) => [
-            ...m,
-            {
-              from: "bot",
-              text: "Where are you right now? Tell me your room, building, or gate.",
-            },
-          ]);
-        }
-      }
-    } catch {
-      setMessages((m) => [
-        ...m,
-        { from: "bot", text: "I couldn't reach the server. Please try again." },
-      ]);
-    } finally {
-      setBusy(false);
+    if (seenRequest.current === mapRequest) return;
+    seenRequest.current = mapRequest;
+    if (!onMapPage) {
+      router.push("/navigation");
     }
-  };
+  }, [mapRequest, onMapPage, router]);
+
+  useEffect(() => {
+    if (onMapPage) {
+      const timer = setTimeout(() => setOpen(false), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [onMapPage]);
+
+  if (onMapPage) return null;
 
   if (!open) {
     return (
-      <button
-        type="button"
-        className={styles.fab}
-        onClick={() => setOpen(true)}
-      >
-        💬 Ask ATLAS
+      <button type="button" className={styles.fab} onClick={() => setOpen(true)}>
+        <span className={styles.fabIcon} aria-hidden="true">
+          <Icon name="sparkle" size={18} />
+        </span>
+        Ask ATLAS
       </button>
     );
   }
 
   return (
-    <section className={styles.panel} aria-label="ATLAS Assistant">
-      <div className={styles.head}>
-        <span>ATLAS Assistant</span>
-        <button
-          type="button"
-          className={styles.close}
-          onClick={() => setOpen(false)}
-          aria-label="Close chat"
-        >
-          ✕
-        </button>
-      </div>
-      <div className={styles.log} ref={logRef} aria-live="polite">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`${styles.msg} ${m.from === "me" ? styles.me : styles.bot}`}
-          >
-            {m.text}
-            {m.sources && (
-              <div className={styles.sources}>Source: {m.sources.join(", ")}</div>
-            )}
-            {m.actions && m.actions.length > 0 && (
-              <div className={styles.actions}>
-                {m.actions.map((a) => (
-                  <button
-                    key={a.destinationId}
-                    type="button"
-                    className={styles.actionBtn}
-                    onClick={() => openNavigation({ destinationId: a.destinationId })}
-                  >
-                    🧭 {a.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-        {busy && <div className={`${styles.msg} ${styles.bot}`}>Thinking…</div>}
-      </div>
-      <form className={styles.form} onSubmit={send}>
-        <input
-          className="input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Where is Dr. Santos?"
-          aria-label="Message"
-        />
-        <button className="btn" disabled={busy || !input.trim()}>
-          Send
-        </button>
-      </form>
-    </section>
+    <div className={styles.panel}>
+      <AssistantChat
+        onClose={() => setOpen(false)}
+        onMapRequest={() => router.push("/navigation")}
+        autoFocus
+      />
+    </div>
   );
 }

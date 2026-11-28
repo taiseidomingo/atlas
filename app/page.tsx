@@ -6,10 +6,7 @@ export default function HomePage() {
     <>
       <section className="hero">
         <h1>Find your way around CvSU Imus</h1>
-        <p>
-          ATLAS is your smart campus guide: indoor and outdoor directions, floor
-          plans, and an assistant that knows where your professors are.
-        </p>
+        <p>Search a room, office or professor — ATLAS shows it on the map and walks you there.</p>
         <HomeSearch />
       </section>
       <FeatureCards />

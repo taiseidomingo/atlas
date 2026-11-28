@@ -1,41 +1,53 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Icon, { type IconName } from "./Icon";
+
+const FEATURES: { icon: IconName; title: string; text: string; action: "map" | "chat" | "floors" }[] = [
+  {
+    icon: "map",
+    title: "Campus map",
+    text: "Walking routes between any two places.",
+    action: "map",
+  },
+  {
+    icon: "layers",
+    title: "Floor plans",
+    text: "Every building, floor by floor.",
+    action: "floors",
+  },
+  {
+    icon: "sparkle",
+    title: "Ask ATLAS",
+    text: "Find rooms and professors by asking.",
+    action: "chat",
+  },
+];
 
 export default function FeatureCards() {
   const router = useRouter();
   return (
-    <div className="grid3">
-      <button
-        type="button"
-        className="card feature"
-        onClick={() => router.push("/navigation")}
-      >
-        <span className="emoji">🧭</span>
-        <h3>Campus Navigation</h3>
-        <p>
-          Pick a start and destination and get the shortest walking route with
-          distance.
-        </p>
-      </button>
-      <button
-        type="button"
-        className="card feature"
-        onClick={() => window.dispatchEvent(new Event("atlas:open-chat"))}
-      >
-        <span className="emoji">🤖</span>
-        <h3>ATLAS Assistant</h3>
-        <p>Ask where a professor is right now, or how to reach a room.</p>
-      </button>
-      <button
-        type="button"
-        className="card feature"
-        onClick={() => router.push("/navigation?view=new")}
-      >
-        <span className="emoji">🏢</span>
-        <h3>Indoor Floor Plans</h3>
-        <p>Explore the New and Old Buildings floor by floor.</p>
-      </button>
-    </div>
+    <nav className="quickLinks" aria-label="Get started">
+      {FEATURES.map((f) => (
+        <button
+          key={f.title}
+          type="button"
+          className="quickLink"
+          onClick={() => {
+            if (f.action === "chat") window.dispatchEvent(new Event("atlas:open-chat"));
+            else router.push(f.action === "floors" ? "/navigation?view=new" : "/navigation");
+          }}
+        >
+          <span className="quickIcon" aria-hidden="true">
+            <Icon name={f.icon} size={20} />
+          </span>
+          <span className="quickText">
+            <strong>{f.title}</strong>
+            <span>{f.text}</span>
+          </span>
+          <Icon name="arrowRight" size={18} className="quickGo" />
+        </button>
+      ))}
+    </nav>
   );
 }

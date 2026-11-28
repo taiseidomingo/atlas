@@ -64,12 +64,15 @@ export function fitMapLabel(
     Math.min(maxSize, Math.sqrt(Math.max(1, width * height)) * 0.085 * scale),
   );
 
+  let broke = false;
   const wrap = (fontSize: number): string[] => {
     const maxChars = Math.max(1, Math.floor(maxWidth / (fontSize * 0.58)));
     const result: string[] = [];
     let line = "";
+    broke = false;
     for (const word of text.split(" ")) {
       if (word.length > maxChars) {
+        broke = true;
         if (line) {
           result.push(line);
           line = "";
@@ -93,7 +96,9 @@ export function fitMapLabel(
 
   for (let fontSize = Math.floor(startSize); fontSize >= 8; fontSize -= 1) {
     const lines = wrap(fontSize);
+    // Prefer a smaller font over splitting a word ("Registra / r").
     if (
+      !broke &&
       lines.length * fontSize * 1.18 <= maxHeight &&
       lines.every((line) => line.length * fontSize * 0.58 <= maxWidth)
     ) {
@@ -102,5 +107,9 @@ export function fitMapLabel(
   }
 
   // Clip at the room boundary rather than allowing text into neighbouring areas.
+  for (let fontSize = Math.floor(startSize); fontSize >= 8; fontSize -= 1) {
+    const lines = wrap(fontSize);
+    if (lines.length * fontSize * 1.18 <= maxHeight) return { lines, fontSize };
+  }
   return { lines: wrap(8), fontSize: 8 };
 }
