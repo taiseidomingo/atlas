@@ -725,9 +725,27 @@
     padding: 12px;
     gap: 12px;
   }
-  .navGroupLabel,
-  .sidebarFooter {
+  .navGroupLabel {
     display: none;
+  }
+  /* Keep "Signed in as … / Log out" on phones as a compact row. */
+  .sidebarFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 4px 0;
+    text-align: left;
+  }
+  .sidebarFooter > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sidebarFooter .btnGhost {
+    flex: none;
+    min-height: 44px;
   }
   .nav {
     display: flex;

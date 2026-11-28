@@ -80,11 +80,26 @@ export default function TeacherPage() {
     await loadSession();
   };
 
+  // One logout for every view (teacher, admin, desktop and mobile).
   const logout = async () => {
-    await fetch("/api/teacher/logout", { method: "POST" });
+    try {
+      const res = await fetch("/api/teacher/logout", { method: "POST" });
+      if (!res.ok) throw new Error(`logout ${res.status}`);
+    } catch {
+      // The session cookie is only cleared by the server; don't pretend
+      // the user is signed out if that request failed.
+      window.alert("Couldn't log out. Check your connection and try again.");
+      return;
+    }
     setTeacher(null);
     setAdmin(false);
     setRooms([]);
+    setClaims({});
+    setFilter("");
+    setError("");
+    // Back to the plain login page (drops the admin section in the URL hash).
+    window.history.replaceState(null, "", "/teacher");
+    window.scrollTo(0, 0);
   };
 
   const toggle = async (room: Room) => {

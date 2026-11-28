@@ -81,6 +81,16 @@ export function findShortestPath(
     adjacency.get(edge.to)?.push({ neighbor: edge.from, weight: edge.weight });
   }
 
+  // A room is somewhere you go, not a hallway: a route may start or end at
+  // one but never walk in one door and out another, unless the room is
+  // marked passThrough. Corridors, stairs, gates and building entrances
+  // are always walkable.
+  const blocksThrough = new Set<NodeId>(
+    graph.nodes
+      .filter((node) => node.kind === "entrance" && !node.passThrough)
+      .map((node) => node.id),
+  );
+
   const distances = new Map<NodeId, number>();
   const previous = new Map<NodeId, NodeId | null>();
 
@@ -98,6 +108,7 @@ export function findShortestPath(
     if (!current) break;
     if (current.distance !== distances.get(current.id)) continue;
     if (current.id === endId) break;
+    if (current.id !== startId && blocksThrough.has(current.id)) continue;
 
     const neighbors = adjacency.get(current.id) ?? [];
     for (const { neighbor, weight } of neighbors) {

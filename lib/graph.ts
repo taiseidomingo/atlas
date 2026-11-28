@@ -10,6 +10,12 @@ export interface GraphNode {
   kind: "junction" | "gate" | "entrance";
   claimable?: boolean;
   floor?: number;
+  /**
+   * Rooms ("entrance" nodes) are route endpoints only: a route never walks
+   * through one to reach somewhere else. Set this on the few rooms people
+   * really do walk through.
+   */
+  passThrough?: boolean;
 }
 
 export interface GraphEdge {
@@ -57,10 +63,12 @@ function buildCampusGraph(): CampusGraph {
     edgeSet.add(key);
     const a = byId.get(from)!;
     const b = byId.get(to)!;
+    // True length (rounded to 0.1 m). A 1 m floor here used to make paths
+    // traced with many short segments look longer than they are.
     const w =
       weight ??
       Math.max(
-        1,
+        0.1,
         Math.round(Math.hypot(a.x - b.x, a.y - b.y) * METERS_PER_PIXEL * 10) /
           10,
       );
@@ -72,6 +80,7 @@ function buildCampusGraph(): CampusGraph {
   // Edges exist only where a dashed line is drawn; nothing is linked by proximity.
   const doorsOf = new Map<string, string[]>(); // room/place id -> its door dot ids
   const indoorEntrancesOf = new Map<string, string[]>(); // "X-ENTRANCE|PREFIX" -> dot ids
+  const passThroughRooms = new Set<string>(); // rooms a route may walk through
 
   function processMap(key: string) {
     const map = walkable.maps[key];
@@ -102,7 +111,9 @@ function buildCampusGraph(): CampusGraph {
   Object.keys(walkable.maps).sort().forEach(processMap);
 
   bridgeTracingGaps();
+  joinDeadEndsToWalkways();
   addPassThroughDoors();
+  fixTracedDoors();
   addManualCampusWalkway();
 
   /**
@@ -125,6 +136,119 @@ function buildCampusGraph(): CampusGraph {
   }
 
   /**
+   * T-junctions the tracer missed: a dashed line that ends just short of the
+   * middle of another line (Old Building 1F: the hallway around HM LAB stops
+   * ~40px from both side corridors, and the corridor south of RM 119 stops
+   * ~30px below the main east-west corridor). bridgeTracingGaps only joins
+   * dot to dot, so these stayed disconnected and routes took long detours.
+   *
+   * Each dead-end dot that is not a room door is joined to the closest point
+   * on a nearby walkway line, splitting that line with a new junction dot.
+   * A join is only made when it saves real walking distance, so it can never
+   * add a shortcut next to a path that already exists.
+   */
+  function joinDeadEndsToWalkways(maxGapPx = 64) {
+    const key = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+    // Old Building floors only for now; the other maps have not been
+    // checked against their floor images.
+    for (const map of Object.values(walkable.maps)) {
+      if (!map.prefix.startsWith("OB-")) continue;
+      const prefix = `${map.prefix}-DOT-`;
+      const doorDots = new Set(
+        [...Object.values(map.doors), ...Object.values(map.entrances)]
+          .flat()
+          .map((i) => `${prefix}${i}`),
+      );
+      let joinCount = 0;
+      const dots = nodes.filter((n) => n.id.startsWith(prefix));
+      for (const dead of dots) {
+        if (doorDots.has(dead.id)) continue;
+        const mapEdges = edges.filter(
+          (e) => e.from.startsWith(prefix) && e.to.startsWith(prefix),
+        );
+        const degree = mapEdges.filter(
+          (e) => e.from === dead.id || e.to === dead.id,
+        ).length;
+        if (degree > 1) continue;
+
+        // Walking distance (px) from the dead end along the existing lines.
+        const walk = pixelDistancesFrom(dead.id, mapEdges);
+
+        let best: { edge: GraphEdge; x: number; y: number; t: number; d: number } | null =
+          null;
+        for (const edge of mapEdges) {
+          if (edge.from === dead.id || edge.to === dead.id) continue;
+          const a = byId.get(edge.from)!;
+          const b = byId.get(edge.to)!;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const len2 = dx * dx + dy * dy;
+          if (len2 === 0) continue;
+          const t = Math.min(
+            1,
+            Math.max(0, ((dead.x - a.x) * dx + (dead.y - a.y) * dy) / len2),
+          );
+          const x = a.x + t * dx;
+          const y = a.y + t * dy;
+          const d = Math.hypot(x - dead.x, y - dead.y);
+          if (d > maxGapPx || (best && d >= best.d)) continue;
+          // Already reachable without a big detour: leave it alone.
+          const viaA = (walk.get(a.id) ?? Infinity) + Math.hypot(x - a.x, y - a.y);
+          const viaB = (walk.get(b.id) ?? Infinity) + Math.hypot(x - b.x, y - b.y);
+          if (Math.min(viaA, viaB) <= 3 * d + 20) continue;
+          best = { edge, x, y, t, d };
+        }
+        if (!best) continue;
+
+        const { edge, t } = best;
+        if (t <= 0.001 || t >= 0.999) {
+          addEdge(dead.id, t <= 0.001 ? edge.from : edge.to);
+          continue;
+        }
+        const joinId = `${prefix}J${joinCount++}`;
+        addNode({
+          id: joinId,
+          name: `${map.prefix} path junction`,
+          x: Math.round(best.x * 10) / 10,
+          y: Math.round(best.y * 10) / 10,
+          kind: "junction",
+          floor: map.floor,
+        });
+        edges.splice(edges.indexOf(edge), 1);
+        edgeSet.delete(key(edge.from, edge.to));
+        addEdge(edge.from, joinId);
+        addEdge(joinId, edge.to);
+        addEdge(dead.id, joinId);
+      }
+    }
+  }
+
+  /** Shortest walking distance in pixels from one dot over the given edges. */
+  function pixelDistancesFrom(startId: string, over: GraphEdge[]) {
+    const adjacency = new Map<string, string[]>();
+    for (const e of over) {
+      adjacency.set(e.from, [...(adjacency.get(e.from) ?? []), e.to]);
+      adjacency.set(e.to, [...(adjacency.get(e.to) ?? []), e.from]);
+    }
+    const dist = new Map<string, number>([[startId, 0]]);
+    const queue = [startId];
+    while (queue.length > 0) {
+      queue.sort((p, q) => dist.get(q)! - dist.get(p)!);
+      const id = queue.pop()!;
+      const here = byId.get(id)!;
+      for (const next of adjacency.get(id) ?? []) {
+        const there = byId.get(next)!;
+        const candidate = dist.get(id)! + Math.hypot(here.x - there.x, here.y - there.y);
+        if (candidate < (dist.get(next) ?? Infinity)) {
+          dist.set(next, candidate);
+          queue.push(next);
+        }
+      }
+    }
+    return dist;
+  }
+
+  /**
    * Rooms people walk straight through. The dashed walkway stops at the
    * room's wall on both sides, so give the room a second door on the far
    * side; routes then cross the room instead of dead-ending.
@@ -136,19 +260,50 @@ function buildCampusGraph(): CampusGraph {
       { roomId: "OB-2.2-RM213", prefix: "OB-3", x: 5800, y: 2928 },
     ];
     for (const { roomId, prefix, x, y } of passThrough) {
-      const dot = nodes
-        .filter((n) => n.id.startsWith(`${prefix}-DOT-`))
-        .reduce<GraphNode | null>(
-          (best, n) =>
-            !best || Math.hypot(n.x - x, n.y - y) < Math.hypot(best.x - x, best.y - y) ? n : best,
-          null,
-        );
-      if (!dot || Math.hypot(dot.x - x, dot.y - y) > 40) {
+      const dot = nearestDotTo(prefix, x, y);
+      if (!dot) {
         console.warn(`[graph] pass-through door for ${roomId}: no walkway near (${x}, ${y})`);
         continue;
       }
       doorsOf.set(roomId, [...(doorsOf.get(roomId) ?? []), dot.id]);
+      passThroughRooms.add(roomId);
     }
+  }
+
+  /**
+   * Door assignments the tracer got wrong, fixed by the position of the
+   * dashed stub that really reaches the room.
+   *  - CR 2 was given CR 1's door, so routes to CR 2 cut through CR 1. Its
+   *    own stub (from the corridor west of the Conference Room) went unused.
+   *  - HM LAB has a door stub at both bottom corners; only the east one was
+   *    assigned, so routes from the west side walked around to the east.
+   *  - Floor 2.2 Function Hall: same, its east door stub was unassigned.
+   */
+  function fixTracedDoors() {
+    const fixes: { roomId: string; prefix: string; x: number; y: number; replace: boolean }[] = [
+      { roomId: "OB-1-CR2", prefix: "OB-1", x: 1388, y: 2952, replace: true },
+      { roomId: "OB-1-HM", prefix: "OB-1", x: 3360, y: 1168, replace: false },
+      { roomId: "OB-2.2-FUNCTION", prefix: "OB-3", x: 4896, y: 2800, replace: false },
+    ];
+    for (const { roomId, prefix, x, y, replace } of fixes) {
+      const dot = nearestDotTo(prefix, x, y);
+      if (!dot) {
+        console.warn(`[graph] door fix for ${roomId}: no walkway near (${x}, ${y})`);
+        continue;
+      }
+      doorsOf.set(roomId, replace ? [dot.id] : [...(doorsOf.get(roomId) ?? []), dot.id]);
+    }
+  }
+
+  function nearestDotTo(prefix: string, x: number, y: number, maxPx = 40) {
+    const dot = nodes
+      .filter((n) => n.id.startsWith(`${prefix}-DOT-`))
+      .reduce<GraphNode | null>(
+        (best, n) =>
+          !best || Math.hypot(n.x - x, n.y - y) < Math.hypot(best.x - x, best.y - y) ? n : best,
+        null,
+      );
+    return dot && Math.hypot(dot.x - x, dot.y - y) <= maxPx ? dot : null;
   }
 
   /**
@@ -1624,6 +1779,7 @@ function buildCampusGraph(): CampusGraph {
   // remain routable destinations, but teachers cannot claim them as classrooms.
   nodes.forEach((n) => {
     if (NON_CLASSROOM_IDS.has(n.id)) n.claimable = false;
+    if (passThroughRooms.has(n.id)) n.passThrough = true;
   });
 
   return { nodes, edges };
